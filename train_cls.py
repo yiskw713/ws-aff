@@ -15,6 +15,7 @@ from tensorboardX import SummaryWriter
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import Resize, RandomFlip, RandomRotate, RandomCrop
 from model.drn import drn_c_58
+from model.drn_max import drn_c_58_max
 
 
 def get_arguments():
@@ -180,10 +181,16 @@ def main():
     print('\n-------Loading Model-------\n')
 
     if CONFIG.model == 'drn_c_58':
+        print(CONFIG.model + "will be used")
         model = drn_c_58(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+    elif CONFIG.model == 'drn_c_58_max':
+        print(CONFIG.model + "will be used")
+        model = drn_c_58_max(
+            pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     else:
-        print('drn_c_58 will be used.')
+        print(
+            'Cannot match exitsting models with the model in config. drn_c_58 will be used.')
         model = drn_c_58(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     print('Success\n')

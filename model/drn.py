@@ -8,6 +8,7 @@
 
 
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 import torch.utils.model_zoo as model_zoo
 
@@ -112,9 +113,9 @@ class Bottleneck(nn.Module):
 
 class DRN(nn.Module):
 
-    def __init__(self, block, layers, num_classes,
+    def __init__(self, block, layers, num_obj, num_aff,
                  channels=(16, 32, 64, 128, 256, 512, 512, 512),
-                 out_map=False, out_middle=False, pool_size=28, arch='D'):
+                 out_map=False, out_middle=False, arch='D'):
         super(DRN, self).__init__()
         self.inplanes = channels[0]
         self.out_map = out_map
@@ -166,11 +167,16 @@ class DRN(nn.Module):
             self.layer8 = None if layers[7] == 0 else \
                 self._make_conv_layers(channels[7], layers[7], dilation=1)
 
-        if num_classes > 0:
-            self.avgpool = nn.AvgPool2d(pool_size)
-            # TODO: なんで畳み込みを使ってる？
-            self.fc = nn.Conv2d(self.out_dim, num_classes, kernel_size=1,
-                                stride=1, padding=0, bias=True)
+        self.obj_conv = nn.Conv2d(
+            self.out_dim, self.out_dim, kernel_size=3, stride=1, padding=1)
+        self.aff_conv = nn.Conv2d(
+            self.out_dim, self.out_dim, kernel_size=3, stride=1, padding=1)
+        self.obj_bn = nn.BatchNorm2d(self.out_dim)
+        self.aff_bn = nn.BatchNorm2d(self.out_dim)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.obj_fc = nn.Linear(self.out_dim, num_obj)
+        self.aff_fc = nn.Linear(self.out_dim, num_aff)
+
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
@@ -251,35 +257,42 @@ class DRN(nn.Module):
             x = self.layer8(x)
             y.append(x)
 
-        if self.out_map:
-            x = self.fc(x)
-        else:
-            x = self.avgpool(x)
-            x = self.fc(x)
-            x = x.view(x.size(0), -1)
+        x_obj = self.obj_conv(x)
+        x_obj = F.relu(self.obj_bn(x_obj))
+        x_aff = self.aff_conv(x)
+        x_aff = F.relu(self.aff_bn(x_aff))
 
-        if self.out_middle:
-            return x, y
-        else:
-            return x
+        x_obj = self.avgpool(x_obj)
+        x_aff = self.avgpool(x_aff)
+
+        x_obj = x_obj.view(x_obj.size(0), -1)
+        x_aff = x_aff.view(x_aff.size(0), -1)
+
+        x_obj = self.obj_fc(x_obj)
+        x_aff = self.aff_fc(x_aff)
+
+        return [x_obj, x_aff]
 
 
 def drn_c_58(pretrained=False, **kwargs):
     model = DRN(Bottleneck, [1, 1, 3, 4, 6, 3, 1, 1], arch='C', **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['drn-c-58']))
+        model.load_state_dict(model_zoo.load_url(
+            model_urls['drn-c-58']), strict=False)
     return model
 
 
 def drn_d_54(pretrained=False, **kwargs):
     model = DRN(Bottleneck, [1, 1, 3, 4, 6, 3, 1, 1], arch='D', **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['drn-d-54']))
+        model.load_state_dict(model_zoo.load_url(
+            model_urls['drn-d-54']), strict=False)
     return model
 
 
 def drn_d_105(pretrained=False, **kwargs):
     model = DRN(Bottleneck, [1, 1, 3, 4, 23, 3, 1, 1], arch='D', **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['drn-d-105']))
+        model.load_state_dict(model_zoo.load_url(
+            model_urls['drn-d-105']), strict=False)
     return model

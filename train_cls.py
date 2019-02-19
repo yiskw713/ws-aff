@@ -6,7 +6,6 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 import argparse
-import time
 import tqdm
 import yaml
 
@@ -14,7 +13,7 @@ from addict import Dict
 from tensorboardX import SummaryWriter
 
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
-from dataset import Resize, RandomFlip, RandomRotate
+from dataset import Resize, RandomFlip, RandomRotate, RandomCrop
 from model.drn import drn_c_58
 
 
@@ -40,64 +39,77 @@ def full_train(model, sample, criterion, optimizer, device):
     ''' full supervised learning for segmentation network'''
     model.train()
 
-    x, y_aff = sample['image'], sample['aff_label']
+    x, y_obj, y_aff = sample['image'], sample['obj_label'], sample['aff_label']
 
     x = x.to(device)
+    y_obj = y_obj.to(device)
     y_aff = y_aff.to(device)
 
     h = model(x)    # h[0] => object, h[1] => affordance
 
-    loss = criterion(h, y_aff)
-
+    loss_obj = criterion(h[0], y_obj)
+    loss_aff = criterion(h[1], y_aff)
+    loss = loss_obj + loss_aff
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-    return loss.item()
+    return loss_obj.item(), loss_aff.item()
 
 
 def eval_model(model, test_loader, criterion, config, device):
     ''' calculate the accuracy'''
 
-    start_time = time.time()
-    print('Evaluation started.')
     model.eval()
 
+    obj_total_num = torch.zeros(config.obj_classes).to(device)
+    obj_accurate_num = torch.zeros(config.obj_classes).to(device)
     aff_total_num = torch.zeros(config.aff_classes).to(device)
     aff_accurate_num = torch.zeros(config.aff_classes).to(device)
     loss_obj = 0.0
     loss_aff = 0.0
 
     for sample in test_loader:
-        x, y_aff = sample['image'], sample['aff_label']
+        x, y_obj, y_aff = sample['image'], sample['obj_label'], sample['aff_label']
 
         x = x.to(device)
+        y_obj = y_obj.to(device)
         y_aff = y_aff.to(device)
 
         with torch.no_grad():
             h = model(x)    # h[0] => object, h[1] => affordance
 
-            loss_aff += criterion(h, y_aff)
+            loss_obj += criterion(h[0], y_obj)
+            loss_aff += criterion(h[1], y_aff)
 
-            h = torch.sigmoid(h)
+            h0 = torch.sigmoid(h[0])
+            h1 = torch.sigmoid(h[1])
 
-            h[h > 0.5] = 1
-            h[h <= 0.5] = 0
+            h0[h0 > 0.5] = 1
+            h0[h0 <= 0.5] = 0
+
+            h1[h1 > 0.5] = 1
+            h1[h1 <= 0.5] = 0
+
+            obj_total_num += float(len(y_obj))
+            obj_accurate_num += torch.sum(h0 == y_obj, 0).float()
 
             aff_total_num += float(len(y_aff))
-            aff_accurate_num += torch.sum(h == y_aff, 0).float()
+            aff_accurate_num += torch.sum(h1 == y_aff, 0).float()
 
     loss_obj /= len(test_loader)
     loss_aff /= len(test_loader)
 
     ''' accuracy of each class'''
+    obj_class_accuracy = obj_accurate_num / obj_total_num
+    obj_accuracy = torch.sum(obj_accurate_num) / torch.sum(obj_total_num)
+
     aff_class_accuracy = aff_accurate_num / aff_total_num
     aff_accuracy = torch.sum(aff_accurate_num) / torch.sum(aff_total_num)
 
-    print('it took {:.3f} to finish evaluation'.format(
-        time.time() - start_time))
-
-    return [loss_aff.item(), aff_class_accuracy, aff_accuracy.item()]
+    return [loss_obj.item(), obj_class_accuracy, obj_accuracy.item(),
+            loss_aff.item(), aff_class_accuracy, aff_accuracy.item()
+            ]
 
 
 ''' learning rate scheduler '''
@@ -136,35 +148,44 @@ def main():
 
     """ DataLoader """
 
-    train_data = PartAffordanceDataset(CONFIG.train_data,
-                                       config=CONFIG,
-                                       transform=transforms.Compose([
-                                           RandomRotate(45),
-                                           CenterCrop(CONFIG),
-                                           Resize(CONFIG),
-                                           RandomFlip(),
-                                           ToTensor(CONFIG),
-                                           Normalize()
-                                       ]))
+    train_data = PartAffordanceDataset(
+        CONFIG.train_data,
+        config=CONFIG,
+        transform=transforms.Compose([
+            RandomRotate(45),
+            CenterCrop(CONFIG),
+            Resize(CONFIG),
+            RandomFlip(),
+            ToTensor(CONFIG),
+            Normalize()
+        ]))
 
-    test_data = PartAffordanceDataset(CONFIG.test_data,
-                                      config=CONFIG,
-                                      transform=transforms.Compose([
-                                          CenterCrop(CONFIG),
-                                          Resize(CONFIG),
-                                          ToTensor(CONFIG),
-                                          Normalize()
-                                      ]))
+    test_data = PartAffordanceDataset(
+        CONFIG.test_data,
+        config=CONFIG,
+        transform=transforms.Compose([
+            CenterCrop(CONFIG),
+            Resize(CONFIG),
+            ToTensor(CONFIG),
+            Normalize()
+        ]))
 
-    train_loader = DataLoader(train_data, batch_size=CONFIG.batch_size,
-                              shuffle=True, num_workers=CONFIG.num_workers)
-    test_loader = DataLoader(test_data, batch_size=CONFIG.batch_size,
-                             shuffle=False, num_workers=CONFIG.num_workers)
+    train_loader = DataLoader(
+        train_data, batch_size=CONFIG.batch_size,
+        shuffle=True, num_workers=CONFIG.num_workers)
+    test_loader = DataLoader(
+        test_data, batch_size=CONFIG.batch_size,
+        shuffle=False, num_workers=CONFIG.num_workers)
 
     print('\n-------Loading Model-------\n')
 
     if CONFIG.model == 'drn_c_58':
-        model = drn_c_58(pretrained=False, num_classes=CONFIG.aff_classes)
+        model = drn_c_58(
+            pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+    else:
+        print('drn_c_58 will be used.')
+        model = drn_c_58(
+            pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     print('Success\n')
     model.to(args.device)
 
@@ -175,8 +196,14 @@ def main():
     criterion = nn.BCEWithLogitsLoss()
 
     losses_train = []
+    losses_train_obj = []
+    losses_train_aff = []
     losses_val = []
+    losses_val_obj = []
+    losses_val_aff = []
 
+    obj_class_accuracy_val = []
+    obj_accuracy_val = []
     aff_class_accuracy_val = []
     aff_accuracy_val = []
     best_accuracy = 0.0
@@ -184,44 +211,81 @@ def main():
     print('Start training.\n')
     for epoch in range(CONFIG.max_epoch):
 
-        poly_lr_scheduler(optimizer, CONFIG.learning_rate,
-                          epoch, max_iter=CONFIG.max_epoch, power=CONFIG.poly_power)
+        poly_lr_scheduler(
+            optimizer, CONFIG.learning_rate,
+            epoch, max_iter=CONFIG.max_epoch, power=CONFIG.poly_power)
 
         epoch_loss = 0.0
+        epoch_loss_obj = 0.0
+        epoch_loss_aff = 0.0
 
         for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
 
-            loss_train_aff = full_train(
+            loss_train_obj, loss_train_aff = full_train(
                 model, sample, criterion, optimizer, args.device)
 
-            epoch_loss += loss_train_aff
+            epoch_loss_obj += loss_train_obj
+            epoch_loss_aff += loss_train_aff
+            epoch_loss = epoch_loss + loss_train_obj + loss_train_aff
 
+        losses_train_obj.append(epoch_loss_obj / len(train_loader))
+        losses_train_aff.append(epoch_loss_aff / len(train_loader))
         losses_train.append(epoch_loss / len(train_loader))
 
         # validation
-        loss_val_aff, aff_class_accuracy, aff_accuracy = \
+        loss_val_obj, obj_class_accuracy, obj_accuracy, loss_val_aff, aff_class_accuracy, aff_accuracy = \
             eval_model(model, test_loader, criterion, CONFIG, args.device)
-        losses_val.append(loss_val_aff)
+        losses_val_obj.append(loss_val_obj)
+        losses_val_aff.append(loss_val_aff)
+        losses_val.append(loss_val_obj + loss_val_aff)
 
+        obj_class_accuracy_val.append(obj_class_accuracy)
+        obj_accuracy_val.append(obj_accuracy)
         aff_class_accuracy_val.append(aff_class_accuracy)
         aff_accuracy_val.append(aff_accuracy)
 
-        if best_accuracy < aff_accuracy_val[-1]:
-            best_accuracy = aff_accuracy_val[-1]
-            torch.save(model.state_dict(), CONFIG.result_path +
-                       '/best_accuracy_model.prm')
+        if best_accuracy < (obj_accuracy_val[-1] + aff_accuracy_val[-1]):
+            best_accuracy = obj_accuracy_val[-1] + aff_accuracy_val[-1]
+            torch.save(
+                model.state_dict(), CONFIG.result_path + '/best_accuracy_model.prm')
 
         if epoch % 50 == 0 and epoch != 0:
-            torch.save(model.state_dict(), CONFIG.result_path +
-                       '/epoch_{}_model.prm'.format(epoch))
+            torch.save(
+                model.state_dict(), CONFIG.result_path
+                + '/epoch_{}_model.prm'.format(epoch))
 
         if writer is not None:
             writer.add_scalars("loss", {'loss_train': losses_train[-1],
                                         'loss_val': losses_val[-1]}, epoch)
-            writer.add_scalar("accuracy", aff_accuracy_val[-1], epoch)
+            writer.add_scalars("loss", {'loss_train_obj': losses_train_obj[-1],
+                                        'loss_val_obj': losses_val_obj[-1]}, epoch)
+            writer.add_scalars("loss", {'loss_train_aff': losses_train_aff[-1],
+                                        'loss_val_aff': losses_val_aff[-1]}, epoch)
+            writer.add_scalars("loss", {'obj_accuracy': obj_accuracy_val[-1],
+                                        'aff_accuracy': aff_accuracy_val[-1]}, epoch)
+            writer.add_scalars(
+                "obj_class_accuracy", {
+                    'accuracy of class 0': obj_class_accuracy_val[-1][0],
+                    'accuracy of class 1': obj_class_accuracy_val[-1][1],
+                    'accuracy of class 2': obj_class_accuracy_val[-1][2],
+                    'accuracy of class 3': obj_class_accuracy_val[-1][3],
+                    'accuracy of class 4': obj_class_accuracy_val[-1][4],
+                    'accuracy of class 5': obj_class_accuracy_val[-1][5],
+                    'accuracy of class 6': obj_class_accuracy_val[-1][6],
+                    'accuracy of class 7': obj_class_accuracy_val[-1][7],
+                    'accuracy of class 8': obj_class_accuracy_val[-1][8],
+                    'accuracy of class 9': obj_class_accuracy_val[-1][9],
+                    'accuracy of class 10': obj_class_accuracy_val[-1][10],
+                    'accuracy of class 11': obj_class_accuracy_val[-1][11],
+                    'accuracy of class 12': obj_class_accuracy_val[-1][12],
+                    'accuracy of class 13': obj_class_accuracy_val[-1][13],
+                    'accuracy of class 14': obj_class_accuracy_val[-1][14],
+                    'accuracy of class 15': obj_class_accuracy_val[-1][15],
+                    'accuracy of class 16': obj_class_accuracy_val[-1][16],
+                }, epoch)
             writer.add_scalars(
                 "aff_class_accuracy", {
-                    'accuracy of class 0': aff_class_accuracy_val[-1][0],
+                    'accyracy of class 0': aff_class_accuracy_val[-1][0],
                     'accuracy of class 1': aff_class_accuracy_val[-1][1],
                     'accuracy of class 2': aff_class_accuracy_val[-1][2],
                     'accuracy of class 3': aff_class_accuracy_val[-1][3],
@@ -231,8 +295,8 @@ def main():
                     'accuracy of class 7': aff_class_accuracy_val[-1][7],
                 }, epoch)
 
-        print('epoch: {}\tloss_train: {:.5f}\tloss_val: {:.5f}\taff_accuracy: {:.5f}'
-              .format(epoch, losses_train[-1], losses_val[-1], aff_accuracy_val[-1]))
+        print('epoch: {}\tloss_train: {:.5f}\tloss_val: {:.5f}\tobj_accuracy: {:.5f}\taff_accuracy: {:.5f}'
+              .format(epoch, losses_train[-1], losses_val[-1], obj_accuracy_val[-1], aff_accuracy_val[-1]))
 
     torch.save(model.state_dict(), CONFIG.result_path + '/final_model.prm')
 

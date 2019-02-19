@@ -44,7 +44,7 @@ for d in dir_path:
         aff_multi_hot = np.zeros(8, dtype=np.int64)
         pix_lev_aff_path = img[:-7] + 'label.mat'
         label = scipy.io.loadmat(pix_lev_aff_path)['gt_label']
-        for i in range(0, 8):
+        for i in range(8):
             if i in label:
                 aff_multi_hot[i] = 1
 

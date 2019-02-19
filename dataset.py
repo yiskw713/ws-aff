@@ -34,8 +34,10 @@ class PartAffordanceDataset(Dataset):
         aff_label = np.load(aff_path)
         obj_label = np.load(obj_path)
 
-        sample = {'image': image, 'obj_label': obj_label,
-                  'aff_label': aff_label}
+        sample = {
+            'image': image,
+            'obj_label': obj_label,
+            'aff_label': aff_label}
 
         if self.mode == 'test':
             label_path = self.df.iloc[idx, 3]
@@ -59,10 +61,46 @@ def crop_center_pil_image(pil_img, crop_height, crop_width):
                          (h + crop_height) // 2))
 
 
-def crop_center_numpy(array, crop_height, crop_weight):
+def crop_center_numpy(array, crop_height, crop_width):
     h, w = array.shape
-    return array[h//2 - crop_height//2: h//2 + crop_height//2,
-                 w//2 - crop_weight//2: w//2 + crop_weight//2]
+    return array[
+        h // 2 - crop_height // 2: h // 2 + crop_height // 2,
+        w // 2 - crop_width // 2: w // 2 + crop_width // 2]
+
+
+def crop_pil_image(pil_img, crop_height, crop_width, top, left):
+    return pil_img.crop(
+        (top, left, top + crop_height, left + crop_width))
+
+
+def crop_numpy(array, crop_height, crop_width, top, left):
+    return array[top: top + crop_height, left: left + crop_width]
+
+
+class RandomCrop(object):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+    def __call__(self, sample):
+        image = sample['image']
+        h, w = image.size
+        top = random.randint(0, h - self.config.crop_height)
+        left = random.randint(0, w - self.config.crop_width)
+        image = crop_pil_image(
+            image, self.config.crop_height,
+            self.config.crop_width, top, left)
+        sample['image'] = image
+
+        if 'label' in sample:
+            label = sample['label']
+            label = crop_numpy(
+                label, self.crop_height,
+                self.crop_width, top, left
+            )
+            sample['label'] = label
+
+        return sample
 
 
 class CenterCrop(object):
@@ -94,7 +132,8 @@ class Resize(object):
     def __call__(self, sample):
         image = sample['image']
         image = transforms.functional.resize(
-            image, (self.config.height, self.config.width))
+            image, (self.config.height, self.config.width)
+        )
         sample['image'] = image
         return sample
 
@@ -145,11 +184,6 @@ class ColorChange(object):
         return sample
 
 
-def one_hot(label, n_classes, dtype):
-    one_hot_label = torch.eye(n_classes, dtype=dtype)[label]
-    return one_hot_label
-
-
 class ToTensor(object):
     def __init__(self, config):
         self.config = config
@@ -159,13 +193,13 @@ class ToTensor(object):
             image, obj_label, aff_label, label = sample['image'], sample[
                 'obj_label'], sample['aff_label'], sample['label']
             return {'image': transforms.functional.to_tensor(image).float(),
-                    'obj_label': one_hot(obj_label, self.config.obj_classes, dtype=torch.float),
+                    'obj_label': torch.from_numpy(obj_label).float(),
                     'aff_label': torch.from_numpy(aff_label).float(),
                     'label': torch.from_numpy(label).long()}
         else:
             image, obj_label, aff_label = sample['image'], sample['obj_label'], sample['aff_label']
             return {'image': transforms.functional.to_tensor(image).float(),
-                    'obj_label': one_hot(obj_label, self.config.obj_classes, dtype=torch.float),
+                    'obj_label': torch.from_numpy(obj_label).float(),
                     'aff_label': torch.from_numpy(aff_label).float()}
 
 
@@ -221,7 +255,7 @@ aff_list = [
 
 '''
 
-''' 
+'''
 # if you want to calculate mean and std of each channel of the images,
 # try this code:
 
@@ -238,12 +272,12 @@ std = 0
 n = 0
 
 for sample in data_laoder:
-    img = sample['image']   
+    img = sample['image']
     img = img.view(len(img), 3, -1)
     mean += img.mean(2).sum(0)
     std += img.std(2).sum(0)
     n += len(img)
-    
+
 mean /= n
 std /= ns
 
@@ -266,9 +300,9 @@ cnt_dict = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0}
 
 for sample in data_loader:
     img = sample['label'].numpy()
-    
+
     num, cnt = np.unique(img, return_counts=True)
-    
+
     for n, c in zip(num, cnt):
         cnt_dict[n] += c
 

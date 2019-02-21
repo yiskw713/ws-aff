@@ -14,13 +14,14 @@ from PIL import Image
 class PartAffordanceDataset(Dataset):
     """Part Affordance Dataset"""
 
-    def __init__(self, csv_file, config, transform=None, mode='training'):
+    def __init__(self, csv_file, config, transform=None, mode='training', make_cam_label=False):
         super().__init__()
 
         self.df = pd.read_csv(csv_file)
         self.config = config
         self.transform = transform
         self.mode = mode    # mode => (training or test)
+        self.make_cam_label = make_cam_label
 
     def __len__(self):
         return len(self.df)
@@ -46,6 +47,9 @@ class PartAffordanceDataset(Dataset):
 
         if self.transform:
             sample = self.transform(sample)
+
+        if self.make_cam_label:
+            sample['path'] = image_path
 
         return sample
 

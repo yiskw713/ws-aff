@@ -7,6 +7,21 @@ from .gwrp import global_weighted_rank_pooling
 from joblib import Parallel, delayed
 
 
+class SeedingLoss(nn.Module):
+    def __init__(self, threshold=0.2):
+        super().__init__()
+        self.threshold = threshold
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+
+    def forward(self, seg_out, cam):
+        # the values of cam after normalized. shape => (N, C, H', W')
+        # ignore all classes images do not have (-100)
+        cam = torch.where(cam > 0.2, torch.tensor(1), torch.tensor(-100))
+        loss = self.loss(seg_out, cam)
+
+        return loss
+
+
 class ExpansionLoss(nn.Module):
     def __init__(self):
         super().__init__()
@@ -24,21 +39,6 @@ class ExpansionLoss(nn.Module):
         neg_loss = - torch.log(1 - y_gwrp[neg[:, 0], neg[:, 1]]) / n
 
         return pos_loss + neg_loss
-
-
-class SeedingLoss(nn.Module):
-    def __init__(self, threshold=0.2):
-        super().__init__()
-        self.threshold = threshold
-        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
-
-    def forward(self, seg_out, cam):
-        # the values of cam after normalized. shape => (N, C, H', W')
-        # ignore all classes images do not have (-100)
-        cam = torch.where(cam > 0.2, torch.tensr(1), torch.tensor(-100))
-        loss = self.loss(seg_out, cam)
-
-        return loss
 
 
 class ConstrainToBoundaryLoss(nn.Module):

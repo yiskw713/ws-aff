@@ -4,11 +4,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 import argparse
+import glob
 import numpy as np
 import yaml
 import tqdm
 
 from addict import Dict
+from joblib import Parallel, delayed
 
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import Resize, RandomFlip, RandomRotate, RandomCrop, reverse_normalize
@@ -32,6 +34,17 @@ def get_arguments():
     return parser.parse_args()
 
 
+def save_cam(wrapped_model, sample):
+    img = sample['image']
+
+    # calculate cams
+    obj_label, aff_label = wrapped_model.get_label(
+        img, sample['obj_label'], sample['aff_label'])
+
+    np.save(sample['path'][0][:-7] + 'obj_cam_label.npy', obj_label)
+    np.save(sample['path'][0][:-7] + 'aff_cam_label.npy', aff_label)
+
+
 def main():
 
     args = get_arguments()
@@ -50,7 +63,7 @@ def main():
         CONFIG.train_data, config=CONFIG, transform=train_transform, make_cam_label=True)
 
     train_loader = DataLoader(
-        train_data, batch_size=1, shuffle=True, num_workers=1)
+        train_data, batch_size=1, shuffle=True, num_workers=2)
 
     """ Load Model """
     if CONFIG.model == 'drn_c_58':
@@ -72,7 +85,6 @@ def main():
                             map_location=lambda storage, loc: storage)
     model.load_state_dict(state_dict)
     model.eval()
-    model.to(args.device)
 
     target_layer_obj = model.obj_conv
     target_layer_aff = model.aff_conv
@@ -82,14 +94,7 @@ def main():
     # wrapped_model = GradCAM(model, target_layer_obj, target_layer_aff)
 
     for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
-        img = sample['image'].to(args.device)
-
-        # calculate cams
-        obj_label, aff_label = wrapped_model.get_label(
-            img, sample['obj_label'], sample['aff_label'])
-
-        np.save(sample['path'][0][:-7] + 'obj_cam_label.npy', obj_label)
-        np.save(sample['path'][0][:-7] + 'aff_cam_label.npy', aff_label)
+        save_cam(wrapped_model, sample)
 
 
 if __name__ == '__main__':

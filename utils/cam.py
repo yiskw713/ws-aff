@@ -119,9 +119,9 @@ class CAM(object):
         pred_obj, pred_aff = self.model(x)
 
         weight_fc_obj = list(
-            self.model._modules.get('obj_fc').parameters())[0]
+            self.model._modules.get('obj_fc').parameters())[0].to('cpu').data
         weight_fc_aff = list(
-            self.model._modules.get('aff_fc').parameters())[0]
+            self.model._modules.get('aff_fc').parameters())[0].to('cpu').data
 
         cam_obj = F.conv2d(
             self.values_obj.activations, weight=weight_fc_obj[:, :, None, None])
@@ -164,7 +164,7 @@ class CAM(object):
         cam_label_aff = torch.where(
             val > 0.9, index, torch.tensor([-100])).long()
 
-        return cam_label_obj.to('cpu'), cam_label_aff.to('cpu')
+        return cam_label_obj, cam_label_aff
 
 
 """ Grad CAM """

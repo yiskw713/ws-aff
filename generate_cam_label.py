@@ -72,6 +72,7 @@ def main():
                             map_location=lambda storage, loc: storage)
     model.load_state_dict(state_dict)
     model.eval()
+    model.to(args.device)
 
     target_layer_obj = model.obj_conv
     target_layer_aff = model.aff_conv
@@ -79,7 +80,6 @@ def main():
     # choose CAM or GradCAM
     wrapped_model = CAM(model, target_layer_obj, target_layer_aff)
     # wrapped_model = GradCAM(model, target_layer_obj, target_layer_aff)
-    wrapped_model.to(args.device)
 
     for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
         img = sample['image'].to(args.device)

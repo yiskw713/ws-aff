@@ -10,7 +10,6 @@ import yaml
 import tqdm
 
 from addict import Dict
-from joblib import Parallel, delayed
 
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import Resize, RandomFlip, RandomRotate, RandomCrop, reverse_normalize

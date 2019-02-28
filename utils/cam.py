@@ -119,9 +119,9 @@ class CAM(object):
         pred_obj, pred_aff = self.model(x)
 
         weight_fc_obj = list(
-            self.model._modules.get('obj_fc').parameters())[0].to('cpu').data
+            self.model._modules.get('obj_fc').parameters())[0]
         weight_fc_aff = list(
-            self.model._modules.get('aff_fc').parameters())[0].to('cpu').data
+            self.model._modules.get('aff_fc').parameters())[0]
 
         cam_obj = F.conv2d(
             self.values_obj.activations, weight=weight_fc_obj[:, :, None, None])

@@ -164,7 +164,7 @@ class CAM(object):
         cam_label_aff = torch.where(
             val > 0.9, index, torch.tensor([-100])).long()
 
-        return cam_label_obj, cam_label_aff
+        return cam_label_obj.to('cpu'), cam_label_aff.to('cpu')
 
 
 """ Grad CAM """

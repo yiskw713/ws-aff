@@ -173,10 +173,12 @@ def main():
 
     train_loader = DataLoader(
         train_data, batch_size=CONFIG.batch_size,
-        shuffle=True, num_workers=CONFIG.num_workers)
+        shuffle=True, num_workers=CONFIG.num_workers, drop_last=False
+    )
     test_loader = DataLoader(
         test_data, batch_size=CONFIG.batch_size,
-        shuffle=False, num_workers=CONFIG.num_workers)
+        shuffle=False, num_workers=CONFIG.num_workers
+    )
 
     print('\n-------Loading Model-------\n')
 

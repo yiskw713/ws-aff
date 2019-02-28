@@ -38,7 +38,14 @@ class PartAffordanceDataset(Dataset):
         sample = {
             'image': image,
             'obj_label': obj_label,
-            'aff_label': aff_label}
+            'aff_label': aff_label,
+        }
+
+        if self.mode == 'training':
+            aff_cam = np.load(image_path[:-7] + 'aff_cam_label.npy')
+            obj_cam = np.load(image_path[:-7] + 'obj_cam_label.npy')
+            sample['aff_cam'] = aff_cam
+            sample['obj_cam'] = obj_cam
 
         if self.mode == 'test':
             label_path = self.df.iloc[idx, 3]
@@ -96,6 +103,22 @@ class RandomCrop(object):
             self.config.crop_width, top, left)
         sample['image'] = image
 
+        if 'aff_cam' in sample:
+            aff_cam = sample['aff_cam']
+            aff_cam = crop_numpy(
+                aff_cam, self.crop_height,
+                self.crop_width, top, left
+            )
+            sample['aff_cam'] = aff_cam
+
+        if 'obj_cam' in sample:
+            obj_cam = sample['obj_cam']
+            obj_cam = crop_numpy(
+                obj_cam, self.crop_height,
+                self.crop_width, top, left
+            )
+            sample['obj_cam'] = obj_cam
+
         if 'label' in sample:
             label = sample['label']
             label = crop_numpy(
@@ -103,7 +126,6 @@ class RandomCrop(object):
                 self.crop_width, top, left
             )
             sample['label'] = label
-
         return sample
 
 
@@ -118,6 +140,18 @@ class CenterCrop(object):
             image, self.config.crop_height, self.config.crop_width)
         sample['image'] = image
 
+        if 'aff_cam' in sample:
+            aff_cam = sample['aff_cam']
+            aff_cam = crop_center_numpy(
+                aff_cam, self.config.crop_height, self.config.crop_width)
+            sample['aff_cam'] = aff_cam
+
+        if 'obj_cam' in sample:
+            obj_cam = sample['obj_cam']
+            obj_cam = crop_center_numpy(
+                obj_cam, self.config.crop_height, self.config.crop_width)
+            sample['obj_cam'] = obj_cam
+
         if 'label' in sample:
             label = sample['label']
             label = crop_center_numpy(
@@ -127,7 +161,7 @@ class CenterCrop(object):
         return sample
 
 
-# TODO: when you test the trained model, do not use Resize
+# when you test the trained model, do not use Resize
 class Resize(object):
     def __init__(self, config):
         super().__init__()
@@ -152,6 +186,16 @@ class RandomFlip(object):
             image = sample['image']
             image = transforms.functional.hflip(image)
             sample['image'] = image
+
+            if 'aff_cam' in sample:
+                aff_cam = sample['aff_cam']
+                aff_cam = np.flip(aff_cam, axis=0).copy()
+                sample['aff_cam'] = aff_cam
+
+            if 'obj_cam' in sample:
+                obj_cam = sample['obj_cam']
+                obj_cam = np.flip(obj_cam, axis=0).copy()
+                sample['obj_cam'] = obj_cam
 
             if 'label' in sample:
                 label = sample['label']
@@ -193,18 +237,26 @@ class ToTensor(object):
         self.config = config
 
     def __call__(self, sample):
+        image, obj_label, aff_label, label = \
+            sample['image'], sample['obj_label'], sample['aff_label']
+
+        sample['image'] = transforms.functional.to_tensor(image).float()
+        sample['obj_label'] = torch.from_numpy(obj_label).float()
+        sample['aff_label'] = torch.from_numpy(aff_label).float()
+
+        if 'aff_cam' in sample:
+            aff_cam = sample['aff_cam']
+            sample['aff_cam'] = torch.from_numpy(aff_cam).long()
+
+        if 'obj_cam' in sample:
+            obj_cam = sample['obj_cam']
+            sample['obj_cam'] = torch.from_numpy(obj_cam).long()
+
         if 'label' in sample:
-            image, obj_label, aff_label, label = sample['image'], sample[
-                'obj_label'], sample['aff_label'], sample['label']
-            return {'image': transforms.functional.to_tensor(image).float(),
-                    'obj_label': torch.from_numpy(obj_label).float(),
-                    'aff_label': torch.from_numpy(aff_label).float(),
-                    'label': torch.from_numpy(label).long()}
-        else:
-            image, obj_label, aff_label = sample['image'], sample['obj_label'], sample['aff_label']
-            return {'image': transforms.functional.to_tensor(image).float(),
-                    'obj_label': torch.from_numpy(obj_label).float(),
-                    'aff_label': torch.from_numpy(aff_label).float()}
+            label = sample['label']
+            sample['label'] = torch.from_numpy(label).long()
+
+        return sample
 
 
 class Normalize(object):

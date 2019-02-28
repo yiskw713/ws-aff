@@ -8,17 +8,14 @@ from joblib import Parallel, delayed
 
 
 class SeedingLoss(nn.Module):
-    def __init__(self, threshold=0.2):
+    def __init__(self):
         super().__init__()
-        self.threshold = threshold
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
 
     def forward(self, seg_out, cam):
-        # the values of cam after normalized. shape => (N, C, H', W')
-        # ignore all classes images do not have (-100)
-        cam = torch.where(cam > 0.2, torch.tensor(1), torch.tensor(-100))
+        _, _, H, W = cam.shape
+        seg_out = F.interpolate(seg_out, (H, W), mode='bilinear')
         loss = self.loss(seg_out, cam)
-
         return loss
 
 
@@ -57,7 +54,7 @@ class ConstrainToBoundaryLoss(nn.Module):
         probmap = prob.numpy()
 
         # CRF
-        Q = Parallel(n_jobs=-1)([
+        Q = Parallel(n_jobs=-2)([
             delayed(self.crf)(*pair) for pair in zip(img, probmap)
         ])
         Q = torch.tensor(Q).to(self.device)    # shape => (N, C, h, w)

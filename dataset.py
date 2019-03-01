@@ -237,7 +237,7 @@ class ToTensor(object):
         self.config = config
 
     def __call__(self, sample):
-        image, obj_label, aff_label, label = \
+        image, obj_label, aff_label = \
             sample['image'], sample['obj_label'], sample['aff_label']
 
         sample['image'] = transforms.functional.to_tensor(image).float()

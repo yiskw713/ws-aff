@@ -13,15 +13,17 @@ Traceback (most recent call last):
     return self._process_next_batch(batch)
   File "/home/yuchi/.pyenv/versions/torch/lib/python3.6/site-packages/torch/utils/data/dataloader.py", line 658, in _process_next_batch
     raise batch.exc_type(batch.exc_msg)
-FileNotFoundError: Traceback (most recent call last):
+ValueError: Traceback (most recent call last):
   File "/home/yuchi/.pyenv/versions/torch/lib/python3.6/site-packages/torch/utils/data/dataloader.py", line 138, in _worker_loop
     samples = collate_fn([dataset[i] for i in batch_indices])
   File "/home/yuchi/.pyenv/versions/torch/lib/python3.6/site-packages/torch/utils/data/dataloader.py", line 138, in <listcomp>
     samples = collate_fn([dataset[i] for i in batch_indices])
-  File "/home/yuchi/Documents/ws-aff/dataset.py", line 45, in __getitem__
-    aff_cam = np.load(image_path[:-7] + 'aff_cam_label.npy')
-  File "/home/yuchi/.pyenv/versions/torch/lib/python3.6/site-packages/numpy/lib/npyio.py", line 415, in load
-    fid = open(os_fspath(file), "rb")
-FileNotFoundError: [Errno 2] No such file or directory: './part-affordance-dataset/tools/knife_03/knife_03_00000151_aff_cam_label.npy'
+  File "/home/yuchi/Documents/ws-aff/dataset.py", line 56, in __getitem__
+    sample = self.transform(sample)
+  File "/home/yuchi/.pyenv/versions/torch/lib/python3.6/site-packages/torchvision/transforms/transforms.py", line 49, in __call__
+    img = t(img)
+  File "/home/yuchi/Documents/ws-aff/dataset.py", line 241, in __call__
+    sample['image'], sample['obj_label'], sample['aff_label']
+ValueError: not enough values to unpack (expected 4, got 3)
 
 

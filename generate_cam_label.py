@@ -59,7 +59,7 @@ def main():
     ])
 
     train_data = PartAffordanceDataset(
-        CONFIG.train_data, config=CONFIG, transform=train_transform, make_cam_label=True)
+        CONFIG.train_data, config=CONFIG, transform=train_transform, mode='test', make_cam_label=True)
 
     train_loader = DataLoader(
         train_data, batch_size=1, shuffle=True, num_workers=2)

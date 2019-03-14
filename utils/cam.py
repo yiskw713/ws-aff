@@ -84,7 +84,7 @@ class CAM(object):
 
         for i in aff_label.nonzero():
             cam = self.getCAM(self.values_aff, weight_fc_aff, i)
-            cams_aff[i[1].item()] = cam.data    # i[i] is affordance id
+            cams_aff[i[1].item()] = cam    # i[i] is affordance id
 
         return cams_obj, cams_aff
 
@@ -102,15 +102,12 @@ class CAM(object):
         cam = F.conv2d(values.activations, weight=weight_fc[:, :, None, None])
         _, _, h, w = cam.shape
 
-        max_wo_bg, _ = torch.max(cam, dim=1)
-        cam[:, 0, :, :] = - max_wo_bg
-
         cam = cam[index[0], index[1], :, :]
         cam -= torch.min(cam)
         cam /= torch.max(cam)
         cam = cam.view(1, 1, h, w)
 
-        cam = torch.where(cam > 0.9, cam, torch.tensor([0.]))
+        cam = torch.where(cam > 0.8, cam, torch.tensor([0.]))
 
         return cam.data
 
@@ -143,15 +140,13 @@ class CAM(object):
         cam_bg = - cam_bg
         cam_bg -= torch.min(cam_bg)
         cam_bg /= torch.max(cam_bg)
-        cam_bg = cam_bg.view(-1, H, W)
 
-        for i in obj_label.nonzero():
-            cam_obj[i[1]] -= torch.min(cam_obj[i[1]])
-            cam_obj[i[1]] /= torch.max(cam_obj[i[1]])
-        for i in (0 == obj_label).nonzero():
-            cam_obj[i[1]] = 0.
+        # binarize object label. 0 => bg. 1 => foregrand
+        cam_obj = cam_obj[obj_label.nonzero()[0, 1]]
+        cam_obj -= torch.min(cam_obj)
+        cam_obj /= torch.max(cam_obj)
 
-        cam_obj = torch.cat([cam_bg, cam_obj], dim=0)
+        cam_obj = torch.stack([cam_bg, cam_obj])
         cam_obj = torch.where(cam_obj > 0.9, cam_obj, torch.tensor([0.]))
         val, index = torch.max(cam_obj, dim=0)
         cam_label_obj = torch.where(
@@ -165,13 +160,13 @@ class CAM(object):
         cam_bg /= torch.max(cam_bg)
         cam_bg = cam_bg.view(-1, H, W)
 
+        cam_aff_ = torch.zeros((obj_label.shape[1], H, W)).float()
         for i in aff_label.nonzero():
             cam_aff[i[1]] -= torch.min(cam_aff[i][1])
             cam_aff[i[1]] /= torch.max(cam_aff[i][1])
-        for i in (0 == aff_label).nonzero():
-            cam_aff[i[1]] = 0.
+            cam_aff_[i[1]] = cam_aff[i[1]]
 
-        cam_aff = torch.cat([cam_bg, cam_aff], dim=0)
+        cam_aff = torch.cat([cam_bg, cam_aff_], dim=0)
         cam_aff = torch.where(cam_aff > 0.9, cam_aff, torch.tensor([0.]))
         val, index = torch.max(cam_aff, dim=0)
         cam_label_aff = torch.where(
@@ -182,6 +177,8 @@ class CAM(object):
         # supplement each label using background class
         cam_label_obj_ = np.where(
             np.logical_and((cam_label_obj == 255), (cam_label_aff == 0)), 0, cam_label_obj)
+        cam_label_obj_ = np.where(
+            np.logical_or((cam_label_aff == 0), (cam_label_aff == 255)), cam_label_obj_, 1)
         cam_label_aff_ = np.where(
             np.logical_and((cam_label_obj == 0), (cam_label_aff == 255)), 0, cam_label_aff)
 

@@ -77,15 +77,15 @@ def main():
 
     """ Load Model """
     if CONFIG.model == 'drn_c_58':
-        print(CONFIG.model + "will be used")
+        print(CONFIG.model + " will be used")
         model = drn_c_58(
             pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     elif CONFIG.model == 'drn_c_58_max':
-        print(CONFIG.model + "will be used")
+        print(CONFIG.model + " will be used")
         model = drn_c_58_max(
             pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     elif CONFIG.model == 'drn_d_105_max':
-        print(CONFIG.model + "will be used")
+        print(CONFIG.model + " will be used")
         model = drn_d_105_max(
             pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     else:
@@ -108,8 +108,12 @@ def main():
     wrapped_model = CAM(model, target_layer_obj, target_layer_aff)
     # wrapped_model = GradCAM(model, target_layer_obj, target_layer_aff)
 
+    cnt = 0
     for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
         save_cam(wrapped_model, sample, args.device)
+        cnt += 1
+        if cnt == 10:
+            break
 
 
 if __name__ == '__main__':

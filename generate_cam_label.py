@@ -10,11 +10,12 @@ import yaml
 import tqdm
 
 from addict import Dict
+from PIL import Image
 
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import Resize, RandomFlip, RandomRotate, RandomCrop, reverse_normalize
 from model.drn import drn_c_58
-from model.drn_max import drn_c_58_max
+from model.drn_max import drn_c_58_max, drn_d_105_max
 from utils.cam import CAM, GradCAM
 
 
@@ -25,12 +26,17 @@ def get_arguments():
     '''
 
     parser = argparse.ArgumentParser(
-        description='adversarial learning for affordance detection')
+        description='make initial label for affordance detection')
     parser.add_argument('config', type=str, help='path of a config file')
     parser.add_argument('--device', type=str, default='cpu',
                         help='choose a device you want to use')
 
     return parser.parse_args()
+
+
+# use color palette of an image in pascal voc
+voc_img = Image.open("sample.png")
+palette = voc_img.getpalette()
 
 
 def save_cam(wrapped_model, sample):
@@ -40,8 +46,13 @@ def save_cam(wrapped_model, sample):
     obj_label, aff_label = wrapped_model.get_label(
         img, sample['obj_label'], sample['aff_label'])
 
-    np.save(sample['path'][0][:-7] + 'obj_cam_label.npy', obj_label)
-    np.save(sample['path'][0][:-7] + 'aff_cam_label.npy', aff_label)
+    image = Image.fromarray(obj_label.astype(np.uint8))
+    image.putpalette(palette)
+    image.save(sample['path'][0][:-7] + 'obj_cam_label.png')
+
+    image = Image.fromarray(aff_label.astype(np.uint8))
+    image.putpalette(palette)
+    image.save(sample['path'][0][:-7] + 'aff_cam_label.png')
 
 
 def main():
@@ -68,11 +79,15 @@ def main():
     if CONFIG.model == 'drn_c_58':
         print(CONFIG.model + "will be used")
         model = drn_c_58(
-            pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+            pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     elif CONFIG.model == 'drn_c_58_max':
         print(CONFIG.model + "will be used")
         model = drn_c_58_max(
-            pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+            pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+    elif CONFIG.model == 'drn_d_105_max':
+        print(CONFIG.model + "will be used")
+        model = drn_d_105_max(
+            pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     else:
         print(
             'Cannot match exitsting models with the model in config. drn_c_58 will be used.')

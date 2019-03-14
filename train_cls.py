@@ -183,20 +183,17 @@ def main():
     print('\n-------Loading Model-------\n')
 
     if CONFIG.model == 'drn_c_58':
-        print(CONFIG.model + "will be used")
+        print(CONFIG.model + " will be used")
         model = drn_c_58(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     elif CONFIG.model == 'drn_c_58_max':
-        print(CONFIG.model + "will be used")
+        print(CONFIG.model + " will be used")
         model = drn_c_58_max(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     elif CONFIG.model == 'drn_d_105_max':
-        print(CONFIG.model + "will be used")
+        print(CONFIG.model + " will be used")
         model = drn_d_105_max(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
-        for m in list(model.children())[:-7]:
-            for param in m.parameters():
-                param.requires_grad = False
     else:
         print(
             'Cannot match exitsting models with the model in config. drn_c_58 will be used.')
@@ -265,11 +262,6 @@ def main():
             torch.save(
                 model.state_dict(), CONFIG.result_path + '/best_accuracy_model.prm')
 
-        if epoch % 50 == 0 and epoch != 0:
-            torch.save(
-                model.state_dict(), CONFIG.result_path
-                + '/epoch_{}_model.prm'.format(epoch))
-
         if writer is not None:
             writer.add_scalars("loss", {'loss_train': losses_train[-1],
                                         'loss_val': losses_val[-1]}, epoch)
@@ -308,11 +300,12 @@ def main():
                     'accuracy of class 4': aff_class_accuracy_val[-1][4],
                     'accuracy of class 5': aff_class_accuracy_val[-1][5],
                     'accuracy of class 6': aff_class_accuracy_val[-1][6],
-                    'accuracy of class 7': aff_class_accuracy_val[-1][7],
                 }, epoch)
 
-        print('epoch: {}\tloss_train: {:.5f}\tloss_val: {:.5f}\tobj_accuracy: {:.5f}\taff_accuracy: {:.5f}'
-              .format(epoch, losses_train[-1], losses_val[-1], obj_accuracy_val[-1], aff_accuracy_val[-1]))
+        print(
+            'epoch: {}\tloss_train: {:.5f}\tloss_val: {:.5f}\tobj_accuracy: {:.5f}\taff_accuracy: {:.5f}'
+            .format(epoch, losses_train[-1], losses_val[-1], obj_accuracy_val[-1], aff_accuracy_val[-1])
+        )
 
     torch.save(model.state_dict(), CONFIG.result_path + '/final_model.prm')
 

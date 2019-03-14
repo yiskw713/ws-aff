@@ -3,8 +3,8 @@ model: drn_d_105_max
 class_weight_flag: False # if you use class weight to calculate cross entropy or not
 writer_flag: True # if you use tensorboardx or not
 
-obj_classes: 18
-aff_classes: 8
+obj_classes: 17
+aff_classes: 7
 crop_height: 300
 crop_width: 300
 height: 256

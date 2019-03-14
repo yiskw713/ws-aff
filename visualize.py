@@ -15,7 +15,7 @@ from addict import Dict
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import Resize, RandomFlip, RandomRotate, RandomCrop, reverse_normalize
 from model.drn import drn_c_58
-from model.drn_max import drn_c_58_max
+from model.drn_max import drn_c_58_max, drn_d_105_max
 from utils.cam import CAM, GradCAM
 
 
@@ -76,7 +76,7 @@ def main():
     ])
 
     test_data = PartAffordanceDataset(
-        CONFIG.train_data, config=CONFIG, transform=test_transform)
+        CONFIG.test_data, config=CONFIG, transform=test_transform, mode='test')
 
     test_loader = DataLoader(
         test_data, batch_size=1, shuffle=True, num_workers=1)
@@ -92,6 +92,10 @@ def main():
         print(CONFIG.model + "will be used")
         model = drn_c_58_max(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+    elif CONFIG.model == 'drn_d_105_max':
+        print(CONFIG.model + "will be used")
+        model = drn_d_105_max(
+            pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     else:
         print(
             'Cannot match exitsting models with the model in config. drn_c_58 will be used.')
@@ -145,7 +149,7 @@ def main():
         #     break
         cnt += 1
 
-        if cnt == 50:
+        if cnt == 10:
             break
 
 

@@ -50,7 +50,7 @@ class ConstrainToBoundaryLoss(nn.Module):
         img = F.interpolate(img, (h, w), mode='bilinear')
         # image: (N, 3, h, w) -> (N, h, w, 3)
         img = (img * 255).to('cpu').numpy().astype(np.uint8).transpose(0, 2, 3, 1)
-        prob = torch.softmax(seg_out)    # shape => (N, C, h, w)
+        prob = torch.softmax(seg_out, 1)    # shape => (N, C, h, w)
         probmap = prob.numpy()
 
         # CRF

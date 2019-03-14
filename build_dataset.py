@@ -7,24 +7,23 @@ dir_path = glob.glob('./part-affordance-dataset/tools/*')
 
 
 object_to_cls = {
-    'background': 0,
-    'bowl': 1,
-    'cup': 2,
-    'hammer': 3,
-    'knife': 4,
-    'ladle': 5,
-    'mallet': 6,
-    'mug': 7,
-    'pot': 8,
-    'saw': 9,
-    'scissors': 10,
-    'scoop': 11,
-    'shears': 12,
-    'shovel': 13,
-    'spoon': 14,
-    'tenderizer': 15,
-    'trowel': 16,
-    'turner': 17
+    'bowl': 0,
+    'cup': 1,
+    'hammer': 2,
+    'knife': 3,
+    'ladle': 4,
+    'mallet': 5,
+    'mug': 6,
+    'pot': 7,
+    'saw': 8,
+    'scissors': 9,
+    'scoop': 10,
+    'shears': 11,
+    'shovel': 12,
+    'spoon': 13,
+    'tenderizer': 14,
+    'trowel': 15,
+    'turner': 16
 }
 
 
@@ -36,17 +35,17 @@ pixel_level_aff_path = []
 
 for d in dir_path:
     img_path = glob.glob(d + '/*.jpg')
-    o = [0, object_to_cls[d[32:-3]]]    # path[32:-3] => object name
-    obj_multi_hot = np.zeros(18, dtype=np.int64)
+    o = [object_to_cls[d[32:-3]]]    # path[32:-3] => object name
+    obj_multi_hot = np.zeros(17, dtype=np.int64)
     obj_multi_hot[o] = 1
 
     for img in img_path:
-        aff_multi_hot = np.zeros(8, dtype=np.int64)
+        aff_multi_hot = np.zeros(7, dtype=np.int64)
         pix_lev_aff_path = img[:-7] + 'label.mat'
         label = scipy.io.loadmat(pix_lev_aff_path)['gt_label']
-        for i in range(8):
+        for i in range(1, 8):
             if i in label:
-                aff_multi_hot[i] = 1
+                aff_multi_hot[i - 1] = 1
 
         image_path.append(img)
         image_level_aff_path.append(img[:-7] + 'aff.npy')

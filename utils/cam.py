@@ -135,9 +135,9 @@ class CAM(object):
             cam_aff, (H, W), mode='bilinear').view(-1, H, W)
 
         # make object label
-        max_cam, _ = torch.max(cam_obj, dim=0)
-        cam_obj[0, :, :] = - max_cam    # replace background logit
+        cam_bg, _ = - torch.max(cam_obj, dim=0)  # replace background logit
 
+        # TODO: 要修正．
         for i in obj_label.nonzero():
             cam_obj[i[1]] -= torch.min(cam_obj[i[1]])
             cam_obj[i[1]] /= torch.max(cam_obj[i[1]])
@@ -149,7 +149,7 @@ class CAM(object):
         cam_label_obj = torch.where(
             val > 0.9, index, torch.tensor([-100])).long()
 
-        # make object label
+        # make aff label
         max_cam, _ = torch.max(cam_aff, dim=0)
         cam_aff[0, :, :] = - max_cam    # replace background logit
 
@@ -164,7 +164,7 @@ class CAM(object):
         cam_label_aff = torch.where(
             val > 0.9, index, torch.tensor([-100])).long()
 
-        return cam_label_obj, cam_label_aff
+        return cam_label_obj.numpy(), cam_label_aff.numpy()
 
 
 """ Grad CAM """

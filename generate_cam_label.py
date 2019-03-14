@@ -39,8 +39,8 @@ voc_img = Image.open("sample.png")
 palette = voc_img.getpalette()
 
 
-def save_cam(wrapped_model, sample):
-    img = sample['image']
+def save_cam(wrapped_model, sample, device):
+    img = sample['image'].to(device)
 
     # calculate cams
     obj_label, aff_label = wrapped_model.get_label(
@@ -99,6 +99,7 @@ def main():
                             map_location=lambda storage, loc: storage)
     model.load_state_dict(state_dict)
     model.eval()
+    model.to(args.device)
 
     target_layer_obj = model.obj_conv
     target_layer_aff = model.aff_conv
@@ -108,7 +109,7 @@ def main():
     # wrapped_model = GradCAM(model, target_layer_obj, target_layer_aff)
 
     for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
-        save_cam(wrapped_model, sample)
+        save_cam(wrapped_model, sample, args.device)
 
 
 if __name__ == '__main__':

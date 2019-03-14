@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 
 class SaveValues():
@@ -134,24 +135,35 @@ class CAM(object):
         cam_aff = F.interpolate(
             cam_aff, (H, W), mode='bilinear').view(-1, H, W)
 
-        # make object label
-        cam_bg, _ = - torch.max(cam_obj, dim=0)  # replace background logit
+        cam_obj, cam_aff = cam_obj.to('cpu'), cam_aff.to('cpu')
 
-        # TODO: 要修正．
+        # make object label
+        # replace background logit
+        cam_bg, _ = torch.max(cam_obj, dim=0)
+        cam_bg = - cam_bg
+        cam_bg -= torch.min(cam_bg)
+        cam_bg /= torch.max(cam_bg)
+        cam_bg = cam_bg.view(-1, H, W)
+
         for i in obj_label.nonzero():
             cam_obj[i[1]] -= torch.min(cam_obj[i[1]])
             cam_obj[i[1]] /= torch.max(cam_obj[i[1]])
         for i in (0 == obj_label).nonzero():
             cam_obj[i[1]] = 0.
 
+        cam_obj = torch.cat([cam_bg, cam_obj], dim=0)
         cam_obj = torch.where(cam_obj > 0.9, cam_obj, torch.tensor([0.]))
         val, index = torch.max(cam_obj, dim=0)
         cam_label_obj = torch.where(
-            val > 0.9, index, torch.tensor([-100])).long()
+            val > 0.9, index, torch.tensor([255])).long()
 
         # make aff label
-        max_cam, _ = torch.max(cam_aff, dim=0)
-        cam_aff[0, :, :] = - max_cam    # replace background logit
+        # replace background logits
+        cam_bg, _ = torch.max(cam_aff, dim=0)
+        cam_bg = - cam_bg
+        cam_bg -= torch.min(cam_bg)
+        cam_bg /= torch.max(cam_bg)
+        cam_bg = cam_bg.view(-1, H, W)
 
         for i in aff_label.nonzero():
             cam_aff[i[1]] -= torch.min(cam_aff[i][1])
@@ -159,12 +171,21 @@ class CAM(object):
         for i in (0 == aff_label).nonzero():
             cam_aff[i[1]] = 0.
 
+        cam_aff = torch.cat([cam_bg, cam_aff], dim=0)
         cam_aff = torch.where(cam_aff > 0.9, cam_aff, torch.tensor([0.]))
         val, index = torch.max(cam_aff, dim=0)
         cam_label_aff = torch.where(
-            val > 0.9, index, torch.tensor([-100])).long()
+            val > 0.9, index, torch.tensor([255])).long()
 
-        return cam_label_obj.numpy(), cam_label_aff.numpy()
+        cam_label_obj, cam_label_aff = cam_label_obj.numpy(), cam_label_aff.numpy()
+
+        # supplement each label using background class
+        cam_label_obj_ = np.where(
+            np.logical_and((cam_label_obj == 255), (cam_label_aff == 0)), 0, cam_label_obj)
+        cam_label_aff_ = np.where(
+            np.logical_and((cam_label_obj == 0), (cam_label_aff == 255)), 0, cam_label_aff)
+
+        return cam_label_obj_, cam_label_aff_
 
 
 """ Grad CAM """

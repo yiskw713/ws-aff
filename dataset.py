@@ -14,7 +14,7 @@ from PIL import Image
 class PartAffordanceDataset(Dataset):
     """Part Affordance Dataset"""
 
-    def __init__(self, csv_file, config, transform=None, mode='training', make_cam_label=False):
+    def __init__(self, csv_file, config, transform=None, mode='classify', make_cam_label=False):
         super().__init__()
 
         self.df = pd.read_csv(csv_file)
@@ -41,7 +41,7 @@ class PartAffordanceDataset(Dataset):
             'aff_label': aff_label,
         }
 
-        if self.mode == 'training':
+        if self.mode == 'train segmentator':
             aff_cam = np.load(image_path[:-7] + 'aff_cam_label.npy')
             obj_cam = np.load(image_path[:-7] + 'obj_cam_label.npy')
             sample['aff_cam'] = aff_cam

@@ -13,7 +13,7 @@ from addict import Dict
 from tensorboardX import SummaryWriter
 
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
-from dataset import Resize, RandomFlip, RandomRotate, RandomCrop
+from dataset import Resize, RandomFlip, RandomRotate
 from model.drn import drn_c_58
 from model.drn_max import drn_c_58_max, drn_d_105_max
 

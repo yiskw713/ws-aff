@@ -194,7 +194,7 @@ def main():
         transform=transforms.Compose([
             RandomRotate(30),
             RandomCrop(CONFIG),
-            Resize(),
+            Resize(CONFIG),
             RandomFlip(),
             ToTensor(CONFIG),
             Normalize()
@@ -205,7 +205,7 @@ def main():
         config=CONFIG,
         transform=transforms.Compose([
             CenterCrop(CONFIG),
-            Resize(),
+            Resize(CONFIG),
             ToTensor(CONFIG),
             Normalize()
         ]))

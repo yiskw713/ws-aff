@@ -23,7 +23,7 @@ class MSC(nn.Module):
         for s in self.scales:
             xx = F.interpolate(
                 x, scale_factor=s, mode="bilinear", align_corners=False)
-            yy, _, _ = self.model(xx)
+            yy = self.model(xx)
             ys.append(yy)
 
         return ys

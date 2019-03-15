@@ -5,6 +5,7 @@ from torchvision import transforms
 
 import numpy as np
 import pandas as pd
+import random
 import scipy.io
 
 from PIL import Image

@@ -52,7 +52,6 @@ def train(model, sample, criterion, optimizer, config, device):
         loss_aff = 0.0
         hs = model(x)
         for h in hs:
-            h = model(x)    # h[0] => object, h[1] => affordance
             loss_obj += criterion(h[0], y_obj)
             loss_aff += criterion(h[1], y_aff)
         loss_obj /= len(hs)

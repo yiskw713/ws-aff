@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 
 from torch.utils.data import DataLoader
@@ -89,6 +90,7 @@ def eval_model(model, test_loader, criterion, config, device):
 
     for sample in test_loader:
         x, y = sample['image'], sample['label']
+        _, _, H, W = x.shape
 
         if config.target == 'object':
             y = torch.where(y > 0, torch.tensor([1]), torch.tensor([0])).long()
@@ -98,6 +100,8 @@ def eval_model(model, test_loader, criterion, config, device):
 
         with torch.no_grad():
             h = model(x)
+            h = F.interpolate(h, (H, W), mode='bilinear')
+
             loss += criterion(h, y)
             _, ypred = h.max(1)    # y_pred.shape => (N, H, W)
 

@@ -52,7 +52,7 @@ class ConstrainToBoundaryLoss(nn.Module):
         # image: (N, 3, h, w) -> (N, h, w, 3)
         img = (img * 255).to('cpu').numpy().astype(np.uint8).transpose(0, 2, 3, 1)
         prob = torch.softmax(seg_out, dim=1)    # shape => (N, C, h, w)
-        probmap = prob.data.numpy()
+        probmap = prob.to('cpu').data.numpy()
 
         # CRF
         Q = Parallel(n_jobs=-2)([

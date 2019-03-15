@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from joblib import Parallel, delayed
 
 
 class SaveValues():
@@ -114,6 +115,8 @@ class CAM(object):
 
         _, _, H, W = x.shape
         pred_obj, pred_aff = self.model(x)
+        obj_label = obj_label.view(-1).numpy()
+        aff_label = aff_label.view(-1).numpy()
 
         weight_fc_obj = list(
             self.model._modules.get('obj_fc').parameters())[0].to('cpu').data
@@ -131,47 +134,44 @@ class CAM(object):
         cam_aff = F.interpolate(
             cam_aff, (H, W), mode='bilinear').view(-1, H, W)
 
-        cam_obj, cam_aff = cam_obj.to('cpu'), cam_aff.to('cpu')
+        cam_obj, cam_aff = \
+            cam_obj.to('cpu').data.numpy(), cam_aff.to('cpu').data.numpy()
 
         # make object label
         # replace background logit
-        cam_bg, _ = torch.max(cam_obj, dim=0)
+        cam_bg = np.max(cam_obj, axis=0, keepdims=True)
         cam_bg = - cam_bg
-        cam_bg -= torch.min(cam_bg)
-        cam_bg /= torch.max(cam_bg)
+        cam_bg -= np.min(cam_bg)
+        cam_bg /= np.max(cam_bg)
 
         # binarize object label. 0 => bg. 1 => foregrand
-        cam_obj = cam_obj[obj_label.nonzero()[0, 1]]
-        cam_obj -= torch.min(cam_obj)
-        cam_obj /= torch.max(cam_obj)
+        cam_obj = cam_obj[obj_label == 1]
+        cam_obj -= np.min(cam_obj)
+        cam_obj /= np.max(cam_obj)
 
-        cam_obj = torch.stack([cam_bg, cam_obj])
-        cam_obj = torch.where(cam_obj > 0.9, cam_obj, torch.tensor([0.]))
-        val, index = torch.max(cam_obj, dim=0)
-        cam_label_obj = torch.where(
-            val > 0.9, index, torch.tensor([255])).long()
+        cam_obj = np.concatenate([cam_bg, cam_obj], axis=0)
+        cam_obj = np.where(cam_obj > 0.9, cam_obj, 0.)
+        val = np.max(cam_obj, axis=0)
+        index = np.argmax(cam_obj, axis=0)
+        cam_label_obj = np.where(val > 0.9, index, 255).astype(np.uint8)
 
         # make aff label
         # replace background logits
-        cam_bg, _ = torch.max(cam_aff, dim=0)
-        cam_bg = - cam_bg
-        cam_bg -= torch.min(cam_bg)
-        cam_bg /= torch.max(cam_bg)
-        cam_bg = cam_bg.view(-1, H, W)
+        cam_bg = - np.max(cam_aff, axis=0, keepdims=True)
+        cam_bg -= np.min(cam_bg)
+        cam_bg /= np.max(cam_bg)
 
-        cam_aff_ = torch.zeros((obj_label.shape[1], H, W)).float()
-        for i in aff_label.nonzero():
-            cam_aff[i[1]] -= torch.min(cam_aff[i][1])
-            cam_aff[i[1]] /= torch.max(cam_aff[i][1])
-            cam_aff_[i[1]] = cam_aff[i[1]]
+        cam_aff[aff_label == 0] = 0
+        cam_aff[aff_label == 1] -= \
+            np.min(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
+        cam_aff[aff_label == 1] /= \
+            np.max(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
 
-        cam_aff = torch.cat([cam_bg, cam_aff_], dim=0)
-        cam_aff = torch.where(cam_aff > 0.9, cam_aff, torch.tensor([0.]))
-        val, index = torch.max(cam_aff, dim=0)
-        cam_label_aff = torch.where(
-            val > 0.9, index, torch.tensor([255])).long()
-
-        cam_label_obj, cam_label_aff = cam_label_obj.numpy(), cam_label_aff.numpy()
+        cam_aff = np.concatenate([cam_bg, cam_aff], axis=0)
+        cam_aff = np.where(cam_aff > 0.9, cam_aff, 0.)
+        val = np.max(cam_aff, axis=0)
+        index = np.argmax(cam_aff, axis=0)
+        cam_label_aff = np.where(val > 0.9, index, 255).astype(np.uint8)
 
         # supplement each label using background class
         cam_label_obj_ = np.where(
@@ -183,77 +183,100 @@ class CAM(object):
 
         return cam_label_obj_, cam_label_aff_
 
+    def return_label(self, cam_obj, cam_aff, obj_label, aff_label, i):
+        '''
+        cam_obj => torch.Tensor. (obj_classes, H, W)
+        cam_aff => torch.Tensor. (aff_classes, H, W)
+        obj_label => torch.Tensor. (obj_classes, )
+        aff_label => torch.Tensor. (aff_classes, )
+        '''
 
-""" Grad CAM """
+        cam_obj, cam_aff = \
+            cam_obj.to('cpu').data.numpy(), cam_aff.to('cpu').data.numpy()
 
+        obj_label = obj_label.numpy()
+        aff_label = aff_label.numpy()
 
-class GradCAM(CAM):
-    """
-    Args:
-        model: ResNet_linear()
-        target_layer: conv_layer before Global Average Pooling
-    """
+        # make object label
+        # replace background logit
+        cam_bg = np.max(cam_obj, axis=0, keepdims=True)
+        cam_bg = - cam_bg
+        cam_bg -= np.min(cam_bg)
+        cam_bg /= np.max(cam_bg)
 
-    def __init__(self, model, target_layer_obj, target_layer_aff):
-        super().__init__(model, target_layer_obj, target_layer_aff)
+        # binarize object label. 0 => bg. 1 => foregrand
+        cam_obj = cam_obj[obj_label == 1]
+        cam_obj -= np.min(cam_obj)
+        cam_obj /= np.max(cam_obj)
 
-    def forward(self, x, obj_label=None, aff_label=None):
-        """
-        Args:
-            x: input image. shape =>(1, 3, H, W)
-        Return:
-            heatmap: class activation mappings of predicted classes
-                    [{obj_id: cam}, {aff_id1: cam1, aff_id2: cam2, ...}]
-        """
+        cam_obj = np.concatenate([cam_bg, cam_obj], axis=0)
+        cam_obj = np.where(cam_obj > 0.9, cam_obj, 0.)
+        val = np.max(cam_obj, axis=0)
+        index = np.argmax(cam_obj, axis=0)
+        cam_label_obj = np.where(val > 0.9, index, 255).astype(np.uint8)
 
-        score_obj, score_aff = self.model(x)
+        # make aff label
+        # replace background logits
+        cam_bg = - np.max(cam_aff, axis=0, keepdims=True)
+        cam_bg -= np.min(cam_bg)
+        cam_bg /= np.max(cam_bg)
 
-        # object classification
-        if obj_label is None:
-            pred_obj = torch.sigmoid(score_obj)
-            pred_obj[pred_obj > 0.5] = 1
-            pred_obj[pred_obj <= 0.5] = 0
-            obj_label = pred_obj
-            print("predicted object ids {}".format(pred_obj))
+        cam_aff[aff_label == 0] = 0
+        cam_aff[aff_label == 1] -= \
+            np.min(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
+        cam_aff[aff_label == 1] /= \
+            np.max(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
 
-        # affordance classification
-        if aff_label is None:
-            pred_aff = torch.sigmoid(score_aff)
-            pred_aff[pred_aff > 0.5] = 1
-            pred_aff[pred_aff <= 0.5] = 0
-            aff_label = pred_aff
-            print("predicted affordance ids {}".format(pred_aff))
+        cam_aff = np.concatenate([cam_bg, cam_aff], axis=0)
+        cam_aff = np.where(cam_aff > 0.9, cam_aff, 0.)
+        val = np.max(cam_aff, axis=0)
+        index = np.argmax(cam_aff, axis=0)
+        cam_label_aff = np.where(val > 0.9, index, 255).astype(np.uint8)
 
-        cams_obj = dict()
-        cams_aff = dict()
+        # supplement each label using background class
+        cam_label_obj_ = np.where(
+            np.logical_and((cam_label_obj == 255), (cam_label_aff == 0)), 0, cam_label_obj)
+        cam_label_obj_ = np.where(
+            np.logical_or((cam_label_aff == 0), (cam_label_aff == 255)), cam_label_obj_, 1)
+        cam_label_aff_ = np.where(
+            np.logical_and((cam_label_obj == 0), (cam_label_aff == 255)), 0, cam_label_aff)
 
-        # caluculate cam of each predicted class
-        for i in obj_label.nonzero():
-            cam = self.getGradCAM(self.values_obj, score_obj, i)
-            cams_obj[i[1].item()] = cam
+        return cam_label_obj_, cam_label_aff_, i
 
-        for i in aff_label.nonzero():
-            cam = self.getGradCAM(self.values_aff, score_aff, i)
-            cams_aff[i[1].item()] = cam
+    def parallel_get_label(self, x, obj_label, aff_label):
+        '''
+        x => torch.Tensor. (N, 3, H, W)
+        obj_label => torch.Tensor. (obj_classes, )
+        aff_label => torch.Tensor. (aff_classes, )
+        '''
 
-        return cams_obj, cams_aff
+        N, _, H, W = x.shape
+        pred_obj, pred_aff = self.model(x)
 
-    def __call__(self, x, obj_label=None, aff_label=None):
-        return self.forward(x, obj_label, aff_label)
+        weight_fc_obj = list(
+            self.model._modules.get('obj_fc').parameters())[0].to('cpu').data
+        weight_fc_aff = list(
+            self.model._modules.get('aff_fc').parameters())[0].to('cpu').data
 
-    def getGradCAM(self, values, score, index):
-        self.model.zero_grad()
-        score[index[0], index[1]].backward(retain_graph=True)
-        activations = values.activations
-        gradients = values.gradients
-        n, c, _, _ = gradients.shape
-        alpha = gradients.view(n, c, -1).mean(2)
-        alpha = alpha.view(n, c, 1, 1)
+        cam_obj = F.conv2d(
+            self.values_obj.activations, weight=weight_fc_obj[:, :, None, None])
+        cam_aff = F.conv2d(
+            self.values_aff.activations, weight=weight_fc_aff[:, :, None, None])
 
-        # shape => (1, 1, H', W')
-        cam = (alpha * activations).sum(dim=1, keepdim=True)
-        cam = F.relu(cam)
-        cam -= torch.min(cam)
-        cam /= torch.max(cam)
+        # resize
+        cam_obj = F.interpolate(cam_obj, (H, W), mode='bilinear')
+        cam_aff = F.interpolate(cam_aff, (H, W), mode='bilinear')
 
-        return cam.data
+        processed = Parallel(n_jobs=-1)(
+            [
+                delayed(self.return_label)(
+                    cam_obj[i], cam_aff[i], obj_label[i], aff_label[i], i)
+                for i in range(N)
+            ]
+        )
+
+        # sort wrt batch number
+        processed.sort(key=lambda x: x[2])
+        processed_data = [[p[0], p[1]] for p in processed]
+
+        return processed_data

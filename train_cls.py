@@ -13,9 +13,10 @@ from addict import Dict
 from tensorboardX import SummaryWriter
 
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
-from dataset import Resize, RandomFlip, RandomRotate
+from dataset import Resize, RandomFlip, RandomRotate, RandomCrop
 from model.drn import drn_c_58
 from model.drn_max import drn_c_58_max, drn_d_105_max
+from model.msc import MSC
 
 
 def get_arguments():
@@ -36,7 +37,7 @@ def get_arguments():
 ''' training '''
 
 
-def full_train(model, sample, criterion, optimizer, device):
+def train(model, sample, criterion, optimizer, config, device):
     ''' full supervised learning for segmentation network'''
     model.train()
 
@@ -46,10 +47,21 @@ def full_train(model, sample, criterion, optimizer, device):
     y_obj = y_obj.to(device)
     y_aff = y_aff.to(device)
 
-    h = model(x)    # h[0] => object, h[1] => affordance
+    if config.MSC:
+        loss_obj = 0.0
+        loss_aff = 0.0
+        hs = model(x)
+        for h in hs:
+            h = model(x)    # h[0] => object, h[1] => affordance
+            loss_obj += criterion(h[0], y_obj)
+            loss_aff += criterion(h[1], y_aff)
+        loss_obj /= len(hs)
+        loss_aff /= len(hs)
+    else:
+        h = model(x)    # h[0] => object, h[1] => affordance
+        loss_obj = criterion(h[0], y_obj)
+        loss_aff = criterion(h[1], y_aff)
 
-    loss_obj = criterion(h[0], y_obj)
-    loss_aff = criterion(h[1], y_aff)
     loss = loss_obj + loss_aff
     optimizer.zero_grad()
     loss.backward()
@@ -78,25 +90,49 @@ def eval_model(model, test_loader, criterion, config, device):
         y_aff = y_aff.to(device)
 
         with torch.no_grad():
-            h = model(x)    # h[0] => object, h[1] => affordance
 
-            loss_obj += criterion(h[0], y_obj)
-            loss_aff += criterion(h[1], y_aff)
+            if config.MSC:
+                hs = model(x)
+                for h in hs:
+                    loss_obj += criterion(h[0], y_obj)
+                    loss_aff += criterion(h[1], y_aff)
 
-            h0 = torch.sigmoid(h[0])
-            h1 = torch.sigmoid(h[1])
+                    h0 = torch.sigmoid(h[0])
+                    h1 = torch.sigmoid(h[1])
 
-            h0[h0 > 0.5] = 1
-            h0[h0 <= 0.5] = 0
+                    h0[h0 > 0.5] = 1
+                    h0[h0 <= 0.5] = 0
 
-            h1[h1 > 0.5] = 1
-            h1[h1 <= 0.5] = 0
+                    h1[h1 > 0.5] = 1
+                    h1[h1 <= 0.5] = 0
 
-            obj_total_num += float(len(y_obj))
-            obj_accurate_num += torch.sum(h0 == y_obj, 0).float()
+                    obj_total_num += float(len(y_obj))
+                    obj_accurate_num += torch.sum(h0 == y_obj, 0).float()
 
-            aff_total_num += float(len(y_aff))
-            aff_accurate_num += torch.sum(h1 == y_aff, 0).float()
+                    aff_total_num += float(len(y_aff))
+                    aff_accurate_num += torch.sum(h1 == y_aff, 0).float()
+                loss_obj /= len(hs)
+                loss_aff /= len(hs)
+            else:
+                h = model(x)    # h[0] => object, h[1] => affordance
+
+                loss_obj += criterion(h[0], y_obj)
+                loss_aff += criterion(h[1], y_aff)
+
+                h0 = torch.sigmoid(h[0])
+                h1 = torch.sigmoid(h[1])
+
+                h0[h0 > 0.5] = 1
+                h0[h0 <= 0.5] = 0
+
+                h1[h1 > 0.5] = 1
+                h1[h1 <= 0.5] = 0
+
+                obj_total_num += float(len(y_obj))
+                obj_accurate_num += torch.sum(h0 == y_obj, 0).float()
+
+                aff_total_num += float(len(y_aff))
+                aff_accurate_num += torch.sum(h1 == y_aff, 0).float()
 
     loss_obj /= len(test_loader)
     loss_aff /= len(test_loader)
@@ -108,16 +144,19 @@ def eval_model(model, test_loader, criterion, config, device):
     aff_class_accuracy = aff_accurate_num / aff_total_num
     aff_accuracy = torch.sum(aff_accurate_num) / torch.sum(aff_total_num)
 
-    return [loss_obj.item(), obj_class_accuracy, obj_accuracy.item(),
-            loss_aff.item(), aff_class_accuracy, aff_accuracy.item()
-            ]
+    return [
+        loss_obj.item(), obj_class_accuracy, obj_accuracy.item(),
+        loss_aff.item(), aff_class_accuracy, aff_accuracy.item()
+    ]
 
 
 ''' learning rate scheduler '''
 
 
-def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
-                      max_iter=100, power=0.9):
+def poly_lr_scheduler(
+        optimizer, init_lr, iter, lr_decay_iter=1,
+        max_iter=100, power=0.9
+):
     """Polynomial decay of learning rate
         :param init_lr is base learning rate
         :param iter is a current iteration
@@ -153,9 +192,9 @@ def main():
         CONFIG.train_data,
         config=CONFIG,
         transform=transforms.Compose([
-            RandomRotate(45),
-            CenterCrop(CONFIG),
-            Resize(CONFIG),
+            RandomRotate(30),
+            RandomCrop(CONFIG),
+            Resize(),
             RandomFlip(),
             ToTensor(CONFIG),
             Normalize()
@@ -166,7 +205,7 @@ def main():
         config=CONFIG,
         transform=transforms.Compose([
             CenterCrop(CONFIG),
-            Resize(CONFIG),
+            Resize(),
             ToTensor(CONFIG),
             Normalize()
         ]))
@@ -200,6 +239,10 @@ def main():
         model = drn_c_58(
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     print('Success\n')
+
+    if CONFIG.MSC:
+        model = MSC(model)
+
     model.to(args.device)
 
     """ optimizer, criterion """
@@ -234,8 +277,8 @@ def main():
 
         for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
 
-            loss_train_obj, loss_train_aff = full_train(
-                model, sample, criterion, optimizer, args.device)
+            loss_train_obj, loss_train_aff = train(
+                model, sample, criterion, optimizer, CONFIG, args.device)
 
             epoch_loss_obj += loss_train_obj
             epoch_loss_aff += loss_train_aff

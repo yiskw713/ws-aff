@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 import argparse
-import glob
 import numpy as np
 import yaml
 import tqdm
@@ -12,11 +11,10 @@ import tqdm
 from addict import Dict
 from PIL import Image
 
-from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
-from dataset import Resize, RandomFlip, RandomRotate, RandomCrop, reverse_normalize
+from dataset import PartAffordanceDataset, ToTensor, Normalize, RandomCrop, CenterCrop
 from model.drn import drn_c_58
 from model.drn_max import drn_c_58_max, drn_d_105_max
-from utils.cam import CAM, GradCAM
+from utils.cam import CAM
 
 
 def get_arguments():
@@ -55,6 +53,24 @@ def save_cam(wrapped_model, sample, device):
     image.save(sample['path'][0][:-7] + 'aff_cam_label.png')
 
 
+def save_cams(wrapped_model, sample, device):
+    img = sample['image'].to(device)
+    N = len(img)
+
+    # calculate cams
+    labels = wrapped_model.parallel_get_label(
+        img, sample['obj_label'], sample['aff_label'])
+
+    for i in range(N):
+        image = Image.fromarray(labels[i][0])
+        image.putpalette(palette)
+        image.save(sample['path'][i][:-7] + 'obj_cam_label.png')
+
+        image = Image.fromarray(labels[i][1])
+        image.putpalette(palette)
+        image.save(sample['path'][i][:-7] + 'aff_cam_label.png')
+
+
 def main():
 
     args = get_arguments()
@@ -73,7 +89,7 @@ def main():
         CONFIG.train_data, config=CONFIG, transform=train_transform, mode='test', make_cam_label=True)
 
     train_loader = DataLoader(
-        train_data, batch_size=1, shuffle=True, num_workers=2)
+        train_data, batch_size=4, shuffle=False, num_workers=2)
 
     """ Load Model """
     if CONFIG.model == 'drn_c_58':
@@ -104,13 +120,11 @@ def main():
     target_layer_obj = model.obj_conv
     target_layer_aff = model.aff_conv
 
-    # choose CAM or GradCAM
     wrapped_model = CAM(model, target_layer_obj, target_layer_aff)
-    # wrapped_model = GradCAM(model, target_layer_obj, target_layer_aff)
 
     cnt = 0
     for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
-        save_cam(wrapped_model, sample, args.device)
+        save_cams(wrapped_model, sample, args.device)
         cnt += 1
         if cnt == 10:
             break

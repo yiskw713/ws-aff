@@ -5,7 +5,6 @@ from torchvision import transforms
 
 import numpy as np
 import pandas as pd
-import random
 import scipy.io
 
 from PIL import Image
@@ -81,7 +80,7 @@ def crop_center_numpy(array, crop_height, crop_width):
 
 def crop_pil_image(pil_img, crop_height, crop_width, top, left):
     return pil_img.crop(
-        (top, left, top + crop_height, left + crop_width))
+        (left, top, left + crop_width, top + crop_height))
 
 
 def crop_numpy(array, crop_height, crop_width, top, left):
@@ -95,9 +94,9 @@ class RandomCrop(object):
 
     def __call__(self, sample):
         image = sample['image']
-        h, w = image.size
-        top = random.randint(0, h - self.config.crop_height)
-        left = random.randint(0, w - self.config.crop_width)
+        w, h = image.size
+        top = np.random.randint(0, h - self.config.crop_height)
+        left = np.random.randint(0, w - self.config.crop_width)
         image = crop_pil_image(
             image, self.config.crop_height,
             self.config.crop_width, top, left)
@@ -106,24 +105,24 @@ class RandomCrop(object):
         if 'aff_cam' in sample:
             aff_cam = sample['aff_cam']
             aff_cam = crop_numpy(
-                aff_cam, self.crop_height,
-                self.crop_width, top, left
+                aff_cam, self.config.crop_height,
+                self.config.crop_width, top, left
             )
             sample['aff_cam'] = aff_cam
 
         if 'obj_cam' in sample:
             obj_cam = sample['obj_cam']
             obj_cam = crop_numpy(
-                obj_cam, self.crop_height,
-                self.crop_width, top, left
+                obj_cam, self.config.crop_height,
+                self.config.crop_width, top, left
             )
             sample['obj_cam'] = obj_cam
 
         if 'label' in sample:
             label = sample['label']
             label = crop_numpy(
-                label, self.crop_height,
-                self.crop_width, top, left
+                label, self.config.crop_height,
+                self.config.crop_width, top, left
             )
             sample['label'] = label
         return sample

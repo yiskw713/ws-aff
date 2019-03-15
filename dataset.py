@@ -42,10 +42,15 @@ class PartAffordanceDataset(Dataset):
         }
 
         if self.mode == 'train segmentator':
-            aff_cam = np.load(image_path[:-7] + 'aff_cam_label.npy')
-            obj_cam = np.load(image_path[:-7] + 'obj_cam_label.npy')
-            sample['aff_cam'] = aff_cam
-            sample['obj_cam'] = obj_cam
+            if self.config.target == 'affordance':
+                aff_cam = Image.open(image_path[:-7] + 'aff_cam_label.png')
+                sample['aff_cam'] = aff_cam
+            elif self.config.target == 'object':
+                obj_cam = Image.open(image_path[:-7] + 'obj_cam_label.png')
+                sample['obj_cam'] = obj_cam
+            else:
+                # TODO: error processing
+                pass
 
         if self.mode == 'test':
             label_path = self.df.iloc[idx, 3]
@@ -105,7 +110,7 @@ class RandomCrop(object):
 
         if 'aff_cam' in sample:
             aff_cam = sample['aff_cam']
-            aff_cam = crop_numpy(
+            aff_cam = crop_pil_image(
                 aff_cam, self.config.crop_height,
                 self.config.crop_width, top, left
             )
@@ -113,7 +118,7 @@ class RandomCrop(object):
 
         if 'obj_cam' in sample:
             obj_cam = sample['obj_cam']
-            obj_cam = crop_numpy(
+            obj_cam = crop_pil_image(
                 obj_cam, self.config.crop_height,
                 self.config.crop_width, top, left
             )
@@ -189,12 +194,12 @@ class RandomFlip(object):
 
             if 'aff_cam' in sample:
                 aff_cam = sample['aff_cam']
-                aff_cam = np.flip(aff_cam, axis=0).copy()
+                aff_cam = transforms.functional.hflip(aff_cam)
                 sample['aff_cam'] = aff_cam
 
             if 'obj_cam' in sample:
                 obj_cam = sample['obj_cam']
-                obj_cam = np.flip(obj_cam, axis=0).copy()
+                obj_cam = transforms.functional.hflip(obj_cam)
                 sample['obj_cam'] = obj_cam
 
             if 'label' in sample:
@@ -246,11 +251,13 @@ class ToTensor(object):
 
         if 'aff_cam' in sample:
             aff_cam = sample['aff_cam']
-            sample['aff_cam'] = torch.from_numpy(aff_cam).long()
+            sample['aff_cam'] = \
+                transforms.functional.to_tensor(aff_cam).squeeze().long()
 
         if 'obj_cam' in sample:
             obj_cam = sample['obj_cam']
-            sample['obj_cam'] = torch.from_numpy(obj_cam).long()
+            sample['obj_cam'] = \
+                transforms.functional.to_tensor(obj_cam).squeeze().float()
 
         if 'label' in sample:
             label = sample['label']

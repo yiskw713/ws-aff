@@ -127,7 +127,7 @@ class _ASPP(nn.Module):
 class DeepLabV2(nn.Module):
     """DeepLab v2 (OS=8)"""
 
-    def __init__(self, aff_classes, n_blocks, atrous_rates):
+    def __init__(self, n_classes, n_blocks, atrous_rates):
         super(DeepLabV2, self).__init__()
 
         self.layer1 = _Stem()
@@ -135,7 +135,7 @@ class DeepLabV2(nn.Module):
         self.layer3 = _ResLayer(n_blocks[1], 256, 128, 512, 2, 1)
         self.layer4 = _ResLayer(n_blocks[2], 512, 256, 1024, 1, 2)
         self.layer5 = _ResLayer(n_blocks[3], 1024, 512, 2048, 1, 4)
-        self.aspp = _ASPP(2048, aff_classes, atrous_rates)
+        self.aspp = _ASPP(2048, n_classes, atrous_rates)
 
         self.apply(self.init_weights)
 

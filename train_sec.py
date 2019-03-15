@@ -36,25 +36,32 @@ def get_arguments():
 ''' training '''
 
 
-def train(model, sample, seed, expand, constrain, optimizer, device):
+def train(model, sample, seed, expand, constrain, optimizer, config, device):
     ''' full supervised learning for segmentation network'''
     model.train()
 
-    x, y_obj, y_aff = sample['image'], sample['obj_label'], sample['aff_label']
-    obj_cam, aff_cam = sample['obj_cam'], sample['aff_cam']
-
+    x = sample['image']
     x = x.to(device)
-    y_obj = y_obj.to(device)
-    y_aff = y_aff.to(device)
-    obj_cam = obj_cam.to(device)
-    aff_cam = aff_cam.to(device)
 
-    # h is probability map of each affordance class (N, aff_classes, H', W')
+    if config.target == 'object':
+        y = sample['obj_label']
+        cam = sample['obj_cam']
+        y = y.to(device)
+        cam = cam.to(device)
+    elif config.target == 'affordance':
+        y = sample['aff_label']
+        cam = sample['aff_cam']
+        y = y.to(device)
+        cam = cam.to(device)
+    else:
+        # TODO: error processing
+        pass
+
+    # h is probability map of each affordance class (N, n_classes, H', W')
     h = model(x)
-
-    seed_loss = seed(h, aff_cam)
-    expand_loss = expand(h, y_aff)
-    constrain_loss = constrain(x, h, aff_cam)
+    seed_loss = seed(h, cam)
+    expand_loss = expand(h, y)
+    constrain_loss = constrain(x, h, y)
 
     loss = seed_loss + expand_loss + constrain_loss
     optimizer.zero_grad()
@@ -76,12 +83,15 @@ def eval_model(model, test_loader, criterion, config, device):
     model.eval()
 
     # including background
-    intersections = torch.zeros(config.aff_classes).to(device)
-    unions = torch.zeros(config.aff_classes).to(device)
+    intersections = torch.zeros(config.n_classes).to(device)
+    unions = torch.zeros(config.n_classes).to(device)
     loss = 0.0
 
     for sample in test_loader:
         x, y = sample['image'], sample['label']
+
+        if config.target == 'object':
+            y = torch.where(y > 0, torch.tensor([1]), torch.tensor([0])).long()
 
         x = x.to(device)
         y = y.to(device)
@@ -91,10 +101,10 @@ def eval_model(model, test_loader, criterion, config, device):
             loss += criterion(h, y)
             _, ypred = h.max(1)    # y_pred.shape => (N, H, W)
 
-            p = one_hot(ypred, config.aff, torch.long,
-                        device, requires_grad=False)
-            t = one_hot(y, config.aff_classes, torch.long,
-                        device, requires_grad=False)
+            p = one_hot(
+                ypred, config.n_classes, torch.long, device, requires_grad=False)
+            t = one_hot(
+                y, config.n_classes, torch.long, device, requires_grad=False)
 
             intersection = torch.sum(p & t, (0, 2, 3))
             union = torch.sum(p | t, (0, 2, 3))
@@ -151,11 +161,13 @@ def main():
         CONFIG.train_data,
         config=CONFIG,
         transform=transforms.Compose([
-            CenterCrop(CONFIG),
+            RandomCrop(CONFIG),
             RandomFlip(),
             ToTensor(CONFIG),
             Normalize()
-        ]))
+        ]),
+        mode='train segmentator'
+    )
 
     test_data = PartAffordanceDataset(
         CONFIG.test_data,
@@ -164,7 +176,9 @@ def main():
             CenterCrop(CONFIG),
             ToTensor(CONFIG),
             Normalize()
-        ]))
+        ]),
+        mode='test'
+    )
 
     train_loader = DataLoader(
         train_data, batch_size=CONFIG.batch_size,
@@ -178,7 +192,7 @@ def main():
     print('\n------------Loading Model------------\n')
 
     model = DeepLabV2(
-        aff_classes=CONFIG.aff_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
+        n_classes=CONFIG.n_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
     )
     model.to(args.device)
     print('Success')
@@ -211,7 +225,7 @@ def main():
         for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
 
             epoch_loss += train(
-                model, sample, seed, expand, constrain, optimizer, args.device
+                model, sample, seed, expand, constrain, optimizer, CONFIG, args.device
             )
 
         losses_train.append(epoch_loss / len(train_loader))
@@ -249,8 +263,10 @@ def main():
                 'iou of class 6': class_mean_iou[-1][6],
                 'iou of class 7': class_mean_iou[-1][7]}, epoch)
 
-        print('epoch: {}\tloss train: {:.5f}\tloss val: {:.5f}\tmean iou: {:.5f}\tmean iou w/o bg: {:.5f}'
-              .format(epoch, losses_train[-1], losses_val[-1], mean_iou[-1], mean_iou_without_bg[-1]))
+        print(
+            'epoch: {}\tloss train: {:.5f}\tloss val: {:.5f}\tmean iou: {:.5f}\tmean iou w/o bg: {:.5f}'
+            .format(epoch, losses_train[-1], losses_val[-1], mean_iou[-1], mean_iou_without_bg[-1])
+        )
 
     torch.save(model.state_dict(), CONFIG.result_path + '/final_model.prm')
 

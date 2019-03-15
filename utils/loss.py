@@ -10,12 +10,12 @@ from joblib import Parallel, delayed
 class SeedingLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+        self.criterion = nn.CrossEntropyLoss(ignore_index=255)
 
     def forward(self, seg_out, cam):
-        _, _, H, W = cam.shape
+        _, H, W = cam.shape
         seg_out = F.interpolate(seg_out, (H, W), mode='bilinear')
-        loss = self.loss(seg_out, cam)
+        loss = self.criterion(seg_out, cam)
         return loss
 
 
@@ -32,8 +32,8 @@ class ExpansionLoss(nn.Module):
         p, _ = pos.shape
         n, _ = neg.shape
 
-        pos_loss = - torch.log(y_gwrp[pos[:, 0], pos[:, 1]]) / p
-        neg_loss = - torch.log(1 - y_gwrp[neg[:, 0], neg[:, 1]]) / n
+        pos_loss = - torch.sum(torch.log(y_gwrp[pos[:, 0], pos[:, 1]])) / p
+        neg_loss = - torch.sum(torch.log(1 - y_gwrp[neg[:, 0], neg[:, 1]])) / n
 
         return pos_loss + neg_loss
 
@@ -50,8 +50,8 @@ class ConstrainToBoundaryLoss(nn.Module):
         img = F.interpolate(img, (h, w), mode='bilinear')
         # image: (N, 3, h, w) -> (N, h, w, 3)
         img = (img * 255).to('cpu').numpy().astype(np.uint8).transpose(0, 2, 3, 1)
-        prob = torch.softmax(seg_out, 1)    # shape => (N, C, h, w)
-        probmap = prob.numpy()
+        prob = torch.softmax(seg_out, dim=1)    # shape => (N, C, h, w)
+        probmap = prob.data.numpy()
 
         # CRF
         Q = Parallel(n_jobs=-2)([

@@ -202,7 +202,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=CONFIG.learning_rate)
 
     seed = SeedingLoss()
-    expand = ExpansionLoss()
+    expand = ExpansionLoss(args.device)
     constrain = ConstrainToBoundaryLoss(args.device)
     criterion = nn.CrossEntropyLoss()
 

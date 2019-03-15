@@ -20,12 +20,13 @@ class SeedingLoss(nn.Module):
 
 
 class ExpansionLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, device):
         super().__init__()
+        self.device = device
 
     def forward(self, seg_out, label):
         prob = torch.softmax(seg_out, dim=1)
-        y_gwrp = global_weighted_rank_pooling(prob, label)
+        y_gwrp = global_weighted_rank_pooling(prob, label, self.device)
 
         pos = label.nonzero()
         neg = (label == 0.).nonzero()

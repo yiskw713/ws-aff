@@ -259,9 +259,9 @@ class CAM(object):
             self.model._modules.get('aff_fc').parameters())[0].to('cpu').data
 
         cam_obj = F.conv2d(
-            self.values_obj.activations, weight=weight_fc_obj[:, :, None, None])
+            self.values_obj.activations.to('cpu').data, weight=weight_fc_obj[:, :, None, None])
         cam_aff = F.conv2d(
-            self.values_aff.activations, weight=weight_fc_aff[:, :, None, None])
+            self.values_aff.activations.to('cpu').data, weight=weight_fc_aff[:, :, None, None])
 
         # resize
         cam_obj = F.interpolate(cam_obj, (H, W), mode='bilinear')

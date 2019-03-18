@@ -14,6 +14,7 @@ from PIL import Image
 from dataset import PartAffordanceDataset, ToTensor, Normalize, RandomCrop, CenterCrop
 from model.drn import drn_c_58
 from model.drn_max import drn_c_58_max, drn_d_105_max
+from model.msc import MSC
 from utils.cam import CAM
 
 
@@ -80,16 +81,16 @@ def main():
         yaml.safe_load(open(args.config)))
 
     """ DataLoader """
-    train_transform = transforms.Compose([
+    transform = transforms.Compose([
         ToTensor(CONFIG),
         Normalize()
     ])
 
-    train_data = PartAffordanceDataset(
-        CONFIG.train_data, config=CONFIG, transform=train_transform, mode='test', make_cam_label=True)
+    data = PartAffordanceDataset(
+        './part-affordance-dataset/all_data.csv', config=CONFIG, transform=transform, mode='test', make_cam_label=True)
 
-    train_loader = DataLoader(
-        train_data, batch_size=4, shuffle=False, num_workers=2)
+    loader = DataLoader(
+        data, batch_size=2, shuffle=False, num_workers=2)
 
     """ Load Model """
     if CONFIG.model == 'drn_c_58':
@@ -111,9 +112,17 @@ def main():
             pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     print('Success\n')
 
-    state_dict = torch.load(CONFIG.result_path + '/best_accuracy_model.prm',
+    if CONFIG.MSC:
+        model = MSC(model)
+        state_dict = torch.load(CONFIG.result_path + '/best_accuracy_model.prm',
                             map_location=lambda storage, loc: storage)
-    model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict)
+        model = model.model    # single scale input
+    else:
+        state_dict = torch.load(CONFIG.result_path + '/best_accuracy_model.prm',
+                            map_location=lambda storage, loc: storage)
+        model.load_state_dict(state_dict)
+
     model.eval()
     model.to(args.device)
 
@@ -122,12 +131,8 @@ def main():
 
     wrapped_model = CAM(model, target_layer_obj, target_layer_aff)
 
-    cnt = 0
-    for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
+    for sample in tqdm.tqdm(loader, total=len(loader)):
         save_cams(wrapped_model, sample, args.device)
-        cnt += 1
-        if cnt == 10:
-            break
 
 
 if __name__ == '__main__':

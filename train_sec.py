@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
+import adabound
 import argparse
 import tqdm
 import yaml
@@ -206,7 +207,16 @@ def main():
 
     """ optimizer, criterion """
 
-    optimizer = optim.Adam(model.parameters(), lr=CONFIG.learning_rate)
+    if CONFIG.optimizer == 'Adam':
+        print(CONFIG.optimizer + ' will be used as an optimizer.')
+        optimizer = optim.Adam(model.parameters(), lr=CONFIG.learning_rate)
+    elif CONFIG.optimizer == 'Adabound':
+        print(CONFIG.optimizer + ' will be used as an optimizer.')
+        optimizer = adabound.AdaBound(
+            model.parameters(), lr=CONFIG.learning_rate, final_lr=0.1)
+    else:
+        print('Adam will be used as an optimizer.')
+        optimizer = optim.Adam(model.parameters(), lr=CONFIG.learning_rate)
 
     seed = SeedingLoss()
     expand = ExpansionLoss(args.device)

@@ -5,6 +5,7 @@ writer_flag: True # if you use tensorboardx or not
 MSC: False
 GradClip: True
 target: object
+optimizer: Adabound
 
 n_classes: 18 # affordances including background
 crop_height: 320
@@ -14,7 +15,7 @@ width: 256
 batch_size: 4
 num_workers: 4
 max_epoch: 50
-learning_rate: 0.000001 # 1e-6
+learning_rate: 0.0001 # 1e-4
 poly_power: 0.9
 
 result_path: ./result/obj_seg

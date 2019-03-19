@@ -17,7 +17,6 @@ from tensorboardX import SummaryWriter
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import RandomFlip, RandomCrop
 from model.deeplabv2 import DeepLabV2
-from model.segnet import SegNet
 from utils.loss import SeedingLoss, ExpansionLoss, ConstrainToBoundaryLoss
 
 
@@ -64,10 +63,12 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     h = model(x)
     seed_loss = seed(h, cam)
     expand_loss = expand(h, y)
-    constrain_loss = constrain(x, h, y)
-    print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
+    # constrain_loss = constrain(x, h, y)
+    # print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
 
-    loss = seed_loss + expand_loss + constrain_loss
+    # loss = seed_loss + expand_loss + constrain_loss
+    print(seed_loss, expand_loss)
+    loss = seed_loss + expand_loss
     optimizer.zero_grad()
     loss.backward()
     if config.GradClip:
@@ -105,7 +106,7 @@ def eval_model(model, test_loader, criterion, config, device):
 
         with torch.no_grad():
             h = model(x)
-            h = F.interpolate(h, (H, W), mode='bilinear')
+            h = F.interpolate(h, (H, W), mode='bilinear', align_corners=True)
 
             loss += criterion(h, y)
             _, ypred = h.max(1)    # y_pred.shape => (N, H, W)
@@ -205,9 +206,6 @@ def main():
         model = DeepLabV2(
             n_classes=CONFIG.n_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
         )
-    elif CONFIG.model == 'SegNet':
-        print(CONFIG.model + ' will be used.')
-        model = SegNet(3, CONFIG.n_classes)
     else:
         print('DeepLabV2 will be used.')
         model = DeepLabV2(

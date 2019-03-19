@@ -14,7 +14,8 @@ class SeedingLoss(nn.Module):
 
     def forward(self, seg_out, cam):
         _, H, W = cam.shape
-        seg_out = F.interpolate(seg_out, (H, W), mode='bilinear')
+        seg_out = F.interpolate(
+            seg_out, (H, W), mode='bilinear', align_corners=True)
         loss = self.criterion(seg_out, cam)
         return loss
 
@@ -48,7 +49,7 @@ class ConstrainToBoundaryLoss(nn.Module):
     def forward(self, img, seg_out, label):
         # downscale image
         _, _, h, w = seg_out.shape
-        img = F.interpolate(img, (h, w), mode='bilinear')
+        img = F.interpolate(img, (h, w), mode='bilinear', align_corners=True)
         # image: (N, 3, h, w) -> (N, h, w, 3)
         img = (img * 255).to('cpu').numpy().astype(np.uint8).transpose(0, 2, 3, 1)
         prob = torch.softmax(seg_out, dim=1)    # shape => (N, C, h, w)

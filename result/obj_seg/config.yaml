@@ -3,6 +3,7 @@ model: DeepLabV2
 class_weight_flag: False # if you use class weight to calculate cross entropy or not
 writer_flag: True # if you use tensorboardx or not
 MSC: False
+GradClip: True
 target: object
 
 n_classes: 18 # affordances including background
@@ -13,7 +14,7 @@ width: 256
 batch_size: 4
 num_workers: 4
 max_epoch: 100
-learning_rate: 0.00001
+learning_rate: 0.000001 # 1e-6
 poly_power: 0.9
 
 result_path: ./result/obj_seg

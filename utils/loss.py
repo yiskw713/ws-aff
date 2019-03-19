@@ -71,15 +71,15 @@ class ConstrainToBoundaryLoss(nn.Module):
         return loss
 
 
-class ObjectLoss(nn.Module):
-    def __init__(self, device):
-        self.device = device
+# class ObjectLoss(nn.Module):
+#     def __init__(self, device):
+#         self.device = device
 
-    def forward(self, seg_out, aff_label, obj_seg):
-        n, c, h, w = seg_out.shape
-        # shape => (n, 1, h, w)
-        obj_seg = F.interpolate(obj_seg, (h, w), mode='bilinear')
-        label = torch.zeros((n, c, h, w)).float
-        # reverse binary label
-        label[:, 0] = torch.where(
-            obj_seg == 1, torch.tensor([0.]), torch.tensor([1.]))
+#     def forward(self, seg_out, aff_label, obj_seg):
+#         n, c, h, w = seg_out.shape
+#         # shape => (n, 1, h, w)
+#         obj_seg = F.interpolate(obj_seg, (h, w), mode='bilinear')
+#         label = torch.zeros((n, c, h, w)).float
+#         # reverse binary label
+#         label[:, 0] = torch.where(
+#             obj_seg == 1, torch.tensor([0.]), torch.tensor([1.]))

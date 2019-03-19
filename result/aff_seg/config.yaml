@@ -3,6 +3,7 @@ model: DeepLabV2
 class_weight_flag: False # if you use class weight to calculate cross entropy or not
 writer_flag: True # if you use tensorboardx or not
 MSC: False
+GradClip: True
 target: affordance
 
 n_classes: 8 # affordances including background

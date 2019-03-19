@@ -68,6 +68,8 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     loss = seed_loss + expand_loss + constrain_loss
     optimizer.zero_grad()
     loss.backward()
+    if config.GradClip:
+        nn.utils.clip_grad_norm(model.parameters(), max_norm=0.25)
     optimizer.step()
 
     return loss.item()
@@ -247,11 +249,7 @@ def main():
         if best_mean_iou < mean_iou[-1]:
             best_mean_iou = mean_iou[-1]
             torch.save(
-                model.state_dict(), CONFIG.result_path + '/best_accuracy_model.prm')
-
-        if epoch % 50 == 0 and epoch != 0:
-            torch.save(
-                model.state_dict(), CONFIG.result_path + '/epoch_{}_model.prm'.format(epoch))
+                model.state_dict(), CONFIG.result_path + '/best_iou_model.prm')
 
         if writer is not None:
             writer.add_scalars("loss", {'loss_train': losses_train[-1],

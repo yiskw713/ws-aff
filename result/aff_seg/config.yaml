@@ -13,7 +13,7 @@ width: 256
 batch_size: 4
 num_workers: 4
 max_epoch: 100
-learning_rate: 0.0001
+learning_rate: 0.00001
 poly_power: 0.9
 
 result_path: ./result/aff_seg

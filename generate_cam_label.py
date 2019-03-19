@@ -115,12 +115,12 @@ def main():
     if CONFIG.MSC:
         model = MSC(model)
         state_dict = torch.load(CONFIG.result_path + '/best_accuracy_model.prm',
-                            map_location=lambda storage, loc: storage)
+                                map_location=lambda storage, loc: storage)
         model.load_state_dict(state_dict)
         model = model.model    # single scale input
     else:
         state_dict = torch.load(CONFIG.result_path + '/best_accuracy_model.prm',
-                            map_location=lambda storage, loc: storage)
+                                map_location=lambda storage, loc: storage)
         model.load_state_dict(state_dict)
 
     model.eval()

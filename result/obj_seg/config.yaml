@@ -3,9 +3,9 @@ model: DeepLabV2
 class_weight_flag: False # if you use class weight to calculate cross entropy or not
 writer_flag: True # if you use tensorboardx or not
 MSC: False
-target: affordance
+target: object
 
-n_classes: 8 # affordances including background
+n_classes: 18 # affordances including background
 crop_height: 320
 crop_width: 320
 height: 256
@@ -13,9 +13,9 @@ width: 256
 batch_size: 4
 num_workers: 4
 max_epoch: 100
-learning_rate: 0.000001 # 1e-6
+learning_rate: 0.00001
 poly_power: 0.9
 
-result_path: ./result/aff_seg
+result_path: ./result/obj_seg
 train_data: ./part-affordance-dataset/train.csv
 test_data: ./part-affordance-dataset/test.csv

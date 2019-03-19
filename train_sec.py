@@ -63,12 +63,12 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     h = model(x)
     seed_loss = seed(h, cam)
     expand_loss = expand(h, y)
-    # constrain_loss = constrain(x, h, y)
-    # print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
+    constrain_loss = constrain(x, h, y)
+    print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
+    loss = seed_loss + expand_loss + constrain_loss
 
-    # loss = seed_loss + expand_loss + constrain_loss
-    print(seed_loss, expand_loss)
-    loss = seed_loss + expand_loss
+    # print(seed_loss.item(), expand_loss.item())
+    # loss = seed_loss + expand_loss
     optimizer.zero_grad()
     loss.backward()
     if config.GradClip:

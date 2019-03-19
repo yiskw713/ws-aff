@@ -69,7 +69,7 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     optimizer.zero_grad()
     loss.backward()
     if config.GradClip:
-        nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.25)
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.05)
     optimizer.step()
 
     return loss.item()

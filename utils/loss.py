@@ -72,8 +72,20 @@ class ConstrainToBoundaryLoss(nn.Module):
         return loss
 
 
+class SelfLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, seg_out):
+        result = torch.softmax(seg_out, dim=1)
+        _, result = result.max(dim=1)    # shape => (N, H, W)
+        loss = F.cross_entropy(seg_out, result)
+        return loss
+
+
 # class ObjectLoss(nn.Module):
 #     def __init__(self, device):
+        # super().__init__()
 #         self.device = device
 
 #     def forward(self, seg_out, aff_label, obj_seg):

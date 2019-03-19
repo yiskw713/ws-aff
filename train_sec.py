@@ -63,7 +63,7 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     seed_loss = seed(h, cam)
     expand_loss = expand(h, y)
     constrain_loss = constrain(x, h, y)
-    print(seed_loss.item(), expand_loss.teim(), constrain_loss.item())
+    print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
 
     loss = seed_loss + expand_loss + constrain_loss
     optimizer.zero_grad()

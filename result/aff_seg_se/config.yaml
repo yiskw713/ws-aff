@@ -1,6 +1,6 @@
 model: DeepLabV2
 
-class_weight_flag: False # if you use class weight to calculate cross entropy or not
+class_weight_flag: True # if you use class weight to calculate cross entropy or not
 writer_flag: True # if you use tensorboardx or not
 MSC: False
 GradClip: True
@@ -18,6 +18,6 @@ max_epoch: 50
 learning_rate: 0.0001 # 1e-4
 poly_power: 0.9
 
-result_path: ./result/aff_seg
+result_path: ./result/aff_seg_se
 train_data: ./part-affordance-dataset/train.csv
 test_data: ./part-affordance-dataset/test.csv

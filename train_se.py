@@ -17,7 +17,7 @@ from tensorboardX import SummaryWriter
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import RandomFlip, RandomCrop
 from model.deeplabv2 import DeepLabV2
-from utils.loss import SeedingLoss, ExpansionLoss, ConstrainToBoundaryLoss
+from utils.loss import SeedingLoss, ExpansionLoss
 
 
 def get_arguments():
@@ -38,7 +38,7 @@ def get_arguments():
 ''' training '''
 
 
-def train(model, sample, seed, expand, constrain, optimizer, config, device):
+def train(model, sample, seed, expand, optimizer, config, device):
     ''' full supervised learning for segmentation network'''
     model.train()
 
@@ -63,9 +63,12 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     h = model(x)
     seed_loss = seed(h, cam)
     expand_loss = expand(h, y)
-    constrain_loss = constrain(x, h, y)
-    print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
-    loss = seed_loss + expand_loss + constrain_loss
+    # constrain_loss = constrain(x, h, y)
+    # print(seed_loss.item(), expand_loss.item(), constrain_loss.item())
+    # loss = seed_loss + expand_loss + constrain_loss
+
+    print(seed_loss.item(), expand_loss.item())
+    loss = seed_loss + expand_loss
 
     optimizer.zero_grad()
     loss.backward()
@@ -218,11 +221,10 @@ def main():
     if CONFIG.optimizer == 'Adam':
         print(CONFIG.optimizer + ' will be used as an optimizer.')
         optimizer = optim.Adam(model.parameters(), lr=CONFIG.learning_rate)
-    elif CONFIG.optimizer == 'Adabound':
-        print(CONFIG.optimizer + ' will be used as an optimizer.')
-        import adabound
-        optimizer = adabound.AdaBound(
-            model.parameters(), lr=CONFIG.learning_rate, final_lr=0.1)
+    # elif CONFIG.optimizer == 'Adabound':
+    #     print(CONFIG.optimizer + ' will be used as an optimizer.')
+    #     optimizer = adabound.AdaBound(
+    #         model.parameters(), lr=CONFIG.learning_rate, final_lr=0.1)
     elif CONFIG.optimizer == 'SGD':
         print(CONFIG.optimizer + ' will be used as an optimizer.')
         optimizer = optim.SGD(
@@ -233,7 +235,6 @@ def main():
 
     seed = SeedingLoss(CONFIG, args.device)
     expand = ExpansionLoss(args.device)
-    constrain = ConstrainToBoundaryLoss(args.device)
     criterion = nn.CrossEntropyLoss()
 
     losses_train = []
@@ -255,7 +256,7 @@ def main():
         for sample in tqdm.tqdm(train_loader, total=len(train_loader)):
 
             epoch_loss += train(
-                model, sample, seed, expand, constrain, optimizer, CONFIG, args.device
+                model, sample, seed, expand, optimizer, CONFIG, args.device
             )
 
         losses_train.append(epoch_loss / len(train_loader))

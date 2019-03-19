@@ -4,10 +4,10 @@ class_weight_flag: True # if you use class weight to calculate cross entropy or 
 writer_flag: True # if you use tensorboardx or not
 MSC: False
 GradClip: True
-target: object
-optimizer: Adabound
+target: affordance
+optimizer: SGD
 
-n_classes: 18 # affordances including background
+n_classes: 8 # affordances including background
 crop_height: 320
 crop_width: 320
 height: 256
@@ -18,6 +18,6 @@ max_epoch: 50
 learning_rate: 0.0001 # 1e-4
 poly_power: 0.9
 
-result_path: ./result/obj_seg
+result_path: ./result/aff_seg_sec
 train_data: ./part-affordance-dataset/train.csv
 test_data: ./part-affordance-dataset/test.csv

@@ -1,11 +1,11 @@
-model: DeepLabV2
+model: SegNet
 
 class_weight_flag: False # if you use class weight to calculate cross entropy or not
 writer_flag: True # if you use tensorboardx or not
 MSC: False
-GradClip: False
+GradClip: True
 target: affordance
-optimizer: Adabound
+optimizer: Adam
 
 n_classes: 8 # affordances including background
 crop_height: 320

@@ -17,6 +17,7 @@ from tensorboardX import SummaryWriter
 from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import RandomFlip, RandomCrop
 from model.deeplabv2 import DeepLabV2
+from model.segnet import SegNet
 from utils.loss import SeedingLoss, ExpansionLoss, ConstrainToBoundaryLoss
 
 
@@ -70,7 +71,7 @@ def train(model, sample, seed, expand, constrain, optimizer, config, device):
     optimizer.zero_grad()
     loss.backward()
     if config.GradClip:
-        nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.05)
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
     optimizer.step()
 
     return loss.item()
@@ -199,9 +200,20 @@ def main():
 
     print('\n------------Loading Model------------\n')
 
-    model = DeepLabV2(
-        n_classes=CONFIG.n_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
-    )
+    if CONFIG.model == 'DeepLabV2':
+        print(CONFIG.model + ' will be used.')
+        model = DeepLabV2(
+            n_classes=CONFIG.n_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
+        )
+    elif CONFIG.model == 'SegNet':
+        print(CONFIG.model + ' will be used.')
+        model = SegNet(3, CONFIG.n_classes)
+    else:
+        print('DeepLabV2 will be used.')
+        model = DeepLabV2(
+            n_classes=CONFIG.n_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
+        )
+
     model.to(args.device)
     print('Success')
 

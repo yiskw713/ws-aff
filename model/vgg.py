@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
 
 class VGG16(nn.Module):
     def __init__(self, obj_classes, aff_classes):
@@ -10,7 +11,7 @@ class VGG16(nn.Module):
         self.vgg = vgg.features[:-1]
 
         self.obj_conv = nn.Conv2d(
-            512, 1024, kernel_size=3, stride=1, padding=1
+            512, 1024, kernel_size=3, stride=1, padding=1
         )
 
         self.aff_conv = nn.Conv2d(
@@ -34,11 +35,13 @@ class VGG16(nn.Module):
         # object prediction
         x_obj = self.obj_conv(x)
         x_obj = self.gap(x)
+        x_obj = x_obj.view(x_obj.size(0), -1)
         x_obj = self.obj_fc(x_obj)
 
         # affordance prediction
         x_aff = self.aff_conv(x_aff)
         x_aff = self.gap(x_aff)
+        x_aff = x_aff.view(x_aff.size(0), -1)
         x_aff = self.aff_fc(x_aff)
 
 

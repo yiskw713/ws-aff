@@ -2,6 +2,7 @@ model: vgg
 
 class_weight_flag: False        # if you use class weight to calculate cross entropy or not
 writer_flag: True              # if you use tensorboardx or not
+MSC: True
 
 obj_classes: 17
 aff_classes: 7

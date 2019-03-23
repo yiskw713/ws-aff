@@ -79,10 +79,6 @@ class ConstrainToBoundaryLoss(nn.Module):
         ])
         Q = torch.tensor(Q).to(self.device)    # shape => (N, C, h, w)
 
-        # ignore all the classes except classes in images
-        neg = (label == 0.).nonzero()
-        Q[neg[:, 0], neg[:, 1]] = 0.
-
         # the number of pixels of classes which images have
         num = label.sum() * h * w
         log = torch.log((Q + 1e-7) / prob)

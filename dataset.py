@@ -254,10 +254,16 @@ class ToTensor(object):
             sample['aff_cam'] = \
                 transforms.functional.to_tensor(aff_cam).squeeze().long()
 
+            # in label bg class is not included
+            sample['obj_label'] = torch.cat([torch.tensor([0.]), sample['obj_label']])
+
         if 'obj_cam' in sample:
             obj_cam = sample['obj_cam']
             sample['obj_cam'] = \
                 transforms.functional.to_tensor(obj_cam).squeeze().float()
+
+            # in label bg class is not included
+            sample['obj_label'] = torch.cat([torch.tensor([0.]), sample['obj_label']])
 
         if 'label' in sample:
             label = sample['label']

@@ -15,6 +15,7 @@ from dataset import PartAffordanceDataset, ToTensor, Normalize, RandomCrop, Cent
 from model.drn import drn_c_58
 from model.drn_max import drn_c_58_max, drn_d_105_max
 from model.msc import MSC
+from model.vgg import VGG16
 from utils.cam import CAM
 
 
@@ -105,11 +106,14 @@ def main():
         print(CONFIG.model + " will be used")
         model = drn_d_105_max(
             pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+    elif CONFIG.model == 'vgg':
+        print(CONFIG.model + " will be used")
+        model = drn_d_105_max(
+            pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     else:
         print(
             'Cannot match exitsting models with the model in config. drn_c_58 will be used.')
-        model = drn_c_58(
-            pretrained=True, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+        model = VGG16(CONFIG.obj_classes, CONFIG.aff_classes)
     print('Success\n')
 
     if CONFIG.MSC:

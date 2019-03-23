@@ -197,11 +197,23 @@ class CAM(object):
         obj_label = obj_label.to('cpu').numpy()
         aff_label = aff_label.to('cpu').numpy()
 
-        # make object label
-        # replace background logit
-        cam_bg = - np.max(cam_obj, axis=0, keepdims=True)
-        cam_bg -= np.min(cam_bg)
-        cam_bg /= np.max(cam_bg)
+        # # make object label
+        # # replace background logit
+        # cam_bg = - np.max(cam_obj, axis=0, keepdims=True)
+        # cam_bg -= np.min(cam_bg)
+        # cam_bg /= np.max(cam_bg)
+
+        # cam_obj[obj_label == 0] = 0
+        # cam_obj[obj_label == 1] -= \
+        #     np.min(cam_obj[obj_label == 1], axis=(1, 2), keepdims=True)
+        # cam_obj[obj_label == 1] /= \
+        #     np.max(cam_obj[obj_label == 1], axis=(1, 2), keepdims=True)
+
+        # cam_obj = np.concatenate([cam_bg, cam_obj], axis=0)
+        # cam_obj = np.where(cam_obj > 0.9, cam_obj, 0.)
+        # val = np.max(cam_obj, axis=0)
+        # index = np.argmax(cam_obj, axis=0)
+        # cam_label_obj = np.where(val > 0.9, index, 255).astype(np.uint8)
 
         cam_obj[obj_label == 0] = 0
         cam_obj[obj_label == 1] -= \
@@ -209,17 +221,28 @@ class CAM(object):
         cam_obj[obj_label == 1] /= \
             np.max(cam_obj[obj_label == 1], axis=(1, 2), keepdims=True)
 
-        cam_obj = np.concatenate([cam_bg, cam_obj], axis=0)
-        cam_obj = np.where(cam_obj > 0.2, cam_obj, 0.)
         val = np.max(cam_obj, axis=0)
         index = np.argmax(cam_obj, axis=0)
-        cam_label_obj = np.where(val > 0.2, index, 255).astype(np.uint8)
+        cam_label_obj = np.where(val > 0.8, index+1, 255)
+        cam_label_obj = np.where(val > 0.2, cam_label_obj, 0).astype(np.uint8)
 
-        # make aff label
-        # replace background logits
-        cam_bg = - np.max(cam_aff, axis=0, keepdims=True)
-        cam_bg -= np.min(cam_bg)
-        cam_bg /= np.max(cam_bg)
+        # # make aff label
+        # # replace background logits
+        # cam_bg = - np.max(cam_aff, axis=0, keepdims=True)
+        # cam_bg -= np.min(cam_bg)
+        # cam_bg /= np.max(cam_bg)
+
+        # cam_aff[aff_label == 0] = 0
+        # cam_aff[aff_label == 1] -= \
+        #     np.min(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
+        # cam_aff[aff_label == 1] /= \
+        #     np.max(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
+
+        # cam_aff = np.concatenate([cam_bg, cam_aff], axis=0)
+        # cam_aff = np.where(cam_aff > 0.9, cam_aff, 0.)
+        # val = np.max(cam_aff, axis=0)
+        # index = np.argmax(cam_aff, axis=0)
+        # cam_label_aff = np.where(val > 0.9, index, 255).astype(np.uint8)
 
         cam_aff[aff_label == 0] = 0
         cam_aff[aff_label == 1] -= \
@@ -227,17 +250,17 @@ class CAM(object):
         cam_aff[aff_label == 1] /= \
             np.max(cam_aff[aff_label == 1], axis=(1, 2), keepdims=True)
 
-        cam_aff = np.concatenate([cam_bg, cam_aff], axis=0)
-        cam_aff = np.where(cam_aff > 0.2, cam_aff, 0.)
         val = np.max(cam_aff, axis=0)
         index = np.argmax(cam_aff, axis=0)
-        cam_label_aff = np.where(val > 0.2, index, 255).astype(np.uint8)
+        cam_label_aff = np.where(val > 0.8, index+1, 255)
+        cam_label_aff = np.where(val > 0.2, cam_label_aff, 0).astype(np.uint8)
 
         # supplement each label using background class
         cam_label_obj_ = np.where(
             np.logical_and((cam_label_obj == 255), (cam_label_aff == 0)), 0, cam_label_obj)
+        # include bg
         cam_label_obj_ = np.where(
-            np.logical_or((cam_label_aff == 0), (cam_label_aff == 255)), cam_label_obj_, np.where(obj_label==1))
+            np.logical_or((cam_label_aff == 0), (cam_label_aff == 255)), cam_label_obj_, np.where(obj_label==1)[0][0] + 1)
         cam_label_aff_ = np.where(
             np.logical_and((cam_label_obj == 0), (cam_label_aff == 255)), 0, cam_label_aff)
 
@@ -267,7 +290,7 @@ class CAM(object):
         cam_obj = F.interpolate(cam_obj, (H, W), mode='bilinear')
         cam_aff = F.interpolate(cam_aff, (H, W), mode='bilinear')
 
-        processed = Parallel(n_jobs=-4)(
+        processed = Parallel(n_jobs=4)(
             [
                 delayed(self.return_label)(
                     cam_obj[i], cam_aff[i], obj_label[i], aff_label[i], i)

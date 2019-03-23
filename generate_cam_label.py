@@ -91,7 +91,7 @@ def main():
         './part-affordance-dataset/all_data.csv', config=CONFIG, transform=transform, mode='test', make_cam_label=True)
 
     loader = DataLoader(
-        data, batch_size=2, shuffle=False, num_workers=2)
+        data, batch_size=4, shuffle=False, num_workers=4)
 
     """ Load Model """
     if CONFIG.model == 'drn_c_58':
@@ -108,11 +108,10 @@ def main():
             pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
     elif CONFIG.model == 'vgg':
         print(CONFIG.model + " will be used")
-        model = drn_d_105_max(
-            pretrained=False, num_obj=CONFIG.obj_classes, num_aff=CONFIG.aff_classes)
+        model = VGG16(CONFIG.obj_classes, CONFIG.aff_classes)
     else:
         print(
-            'Cannot match exitsting models with the model in config. drn_c_58 will be used.')
+            'Cannot match exitsting models with the model in config. vgg will be used.')
         model = VGG16(CONFIG.obj_classes, CONFIG.aff_classes)
     print('Success\n')
 

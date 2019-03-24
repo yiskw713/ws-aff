@@ -1,0 +1,23 @@
+model: SegNet
+
+class_weight_flag: True # if you use class weight to calculate cross entropy or not
+writer_flag: True # if you use tensorboardx or not
+MSC: False
+GradClip: True
+target: object
+optimizer: Adam
+
+n_classes: 18 # objects including background
+crop_height: 320
+crop_width: 320
+height: 256
+width: 256
+batch_size: 4
+num_workers: 4
+max_epoch: 200
+learning_rate: 0.0001 # 1e-4
+poly_power: 0.9
+
+result_path: ./result/obj_segnet_sc
+train_data: ./part-affordance-dataset/train.csv
+test_data: ./part-affordance-dataset/test.csv

@@ -18,6 +18,7 @@ from dataset import PartAffordanceDataset, ToTensor, CenterCrop, Normalize
 from dataset import RandomFlip, RandomCrop
 from model.deeplabv2 import DeepLabV2
 from utils.loss import SeedingLoss, ExpansionLoss, ConstrainToBoundaryLoss
+from model.segnet import SegNet
 
 
 def get_arguments():
@@ -202,6 +203,9 @@ def main():
         model = DeepLabV2(
             n_classes=CONFIG.n_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24]
         )
+    elif CONFIG.model == 'SegNet':
+        print(CONFIG.model + ' will be used.')
+        model = SegNet(3, CONFIG.n_classes)
     else:
         print('DeepLabV2 will be used.')
         model = DeepLabV2(

@@ -79,7 +79,7 @@ def one_hot(label, n_classes, dtype, device, requires_grad=True):
     return one_hot_label
 
 
-def eval_model(model, test_loader, criterion, config, device):
+def eval_model(model, test_loader, seed, config, device):
     ''' calculate the accuracy'''
 
     model.eval()
@@ -212,7 +212,6 @@ def main():
         optimizer = optim.Adam(model.parameters(), lr=CONFIG.learning_rate)
 
     seed = SeedingLoss(CONFIG, args.device)
-    criterion = nn.CrossEntropyLoss()
 
     losses_train = []
     losses_val = []
@@ -236,7 +235,7 @@ def main():
 
         # validation
         loss_val = eval_model(
-            model, test_loader, criterion, CONFIG, args.device)
+            model, test_loader, seed, CONFIG, args.device)
         losses_val.append(loss_val)
 
         if writer is not None:

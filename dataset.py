@@ -147,13 +147,13 @@ class CenterCrop(object):
 
         if 'aff_cam' in sample:
             aff_cam = sample['aff_cam']
-            aff_cam = crop_center_numpy(
+            aff_cam = crop_center_pil_image(
                 aff_cam, self.config.crop_height, self.config.crop_width)
             sample['aff_cam'] = aff_cam
 
         if 'obj_cam' in sample:
             obj_cam = sample['obj_cam']
-            obj_cam = crop_center_numpy(
+            obj_cam = crop_center_pil_image(
                 obj_cam, self.config.crop_height, self.config.crop_width)
             sample['obj_cam'] = obj_cam
 

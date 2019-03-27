@@ -162,7 +162,7 @@ def main():
             ToTensor(CONFIG),
             Normalize()
         ]),
-        mode='test'
+        mode='train segmentator'
     )
 
     train_loader = DataLoader(

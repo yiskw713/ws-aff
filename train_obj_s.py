@@ -83,19 +83,23 @@ def eval_model(model, test_loader, criterion, config, device):
     ''' calculate the accuracy'''
 
     model.eval()
+    loss = 0.0
 
-    x = sample['image']
-    x = x.to(device)
+    for sample in test_loader:
+        x = sample['image']
+        x = x.to(device)
 
-    y = sample['obj_label']
-    cam = sample['obj_cam']
-    y = y.to(device)
-    cam = cam.to(device)
+        y = sample['obj_label']
+        cam = sample['obj_cam']
+        y = y.to(device)
+        cam = cam.to(device)
 
-    with torch.no_grad():
-        h = model(x)
-        seed_loss = seed(h, cam)
-        loss = seed_loss
+        with torch.no_grad():
+            h = model(x)
+            seed_loss = seed(h, cam)
+            loss += seed_loss
+
+    loss /= len(test_loader)
 
     return loss.item()
 
